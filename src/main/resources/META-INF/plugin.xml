@@ -27,6 +27,9 @@
 
         <!-- Code tracker startup activity -->
         <postStartupActivity implementation="com.github.alttrex.hackdelftchallenge.listeners.CodeTrackerRegistrar"/>
+
+        <!-- Achievement / detection notifications -->
+        <notificationGroup id="DevPet Notifications" displayType="BALLOON"/>
     </extensions>
 
     <projectListeners>

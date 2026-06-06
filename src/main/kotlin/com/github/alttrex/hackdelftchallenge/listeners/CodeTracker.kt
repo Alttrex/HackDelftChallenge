@@ -1,5 +1,6 @@
 package com.github.alttrex.hackdelftchallenge.listeners
 
+import com.github.alttrex.hackdelftchallenge.achievements.Achievements
 import com.github.alttrex.hackdelftchallenge.state.PetState
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.thisLogger
@@ -33,6 +34,17 @@ import kotlin.concurrent.fixedRateTimer
 class CodeTracker : BulkAwareDocumentListener {
 
     companion object {
+        // Compliments the pet says when it sees you writing tests.
+        private val TEST_COMPLIMENTS = listOf(
+            "Ooh, writing tests? You're the best!",
+            "Tests are my favorite snack. Keep going!",
+            "Quack yeah - that's some solid testing!",
+            "Future-you will thank you for this.",
+            "Green checks incoming. I'm so proud!",
+            "A tested duck is a happy duck.",
+            "This is how legends ship code.",
+            "So responsible! Bugs fear you now.",
+        )
         @Volatile
         var instance: CodeTracker? = null
             private set
@@ -327,19 +339,29 @@ class CodeTracker : BulkAwareDocumentListener {
                 "[AI: ${String.format("%.1f", getAiScore())}, Clean: ${String.format("%.1f", getCleanlinessScore())}, Tests: ${String.format("%.1f", getTestScore())}]")
         }
 
+        var countedLines = 0
+
         if (codeLines > 0) {
-            repeat(codeLines) { state.addLine() }
+            repeat(codeLines) { state.addCodeLine() }
+            countedLines += codeLines
             log("✍️ $codeLines line(s) of code written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
         }
 
         if (docLines > 0) {
             repeat(docLines) { state.addJavadocLine() }
+            countedLines += docLines
             log("📝 $docLines documentation line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
         }
 
         if (testLines > 0) {
             repeat(testLines) { state.addTestLine() }
+            countedLines += testLines
             log("🧪 $testLines test line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+            state.say(TEST_COMPLIMENTS.random())
+        }
+
+        if (countedLines > 0) {
+            Achievements.check(null)
         }
     }
 

@@ -29,6 +29,19 @@ class ShopPanel : JPanel(BorderLayout()) {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
     }
 
+    // Live preview of the pet wearing a selected/equipped hat.
+    private val previewRenderer = PetRenderer().apply {
+        preferredSize = java.awt.Dimension(160, 140)
+    }
+
+    private val previewLabel = JBLabel("Preview").apply {
+        horizontalAlignment = SwingConstants.CENTER
+        font = font.deriveFont(java.awt.Font.ITALIC, 11f)
+    }
+
+    // When the user clicks "Preview", stop snapping the preview back to equipped cosmetics.
+    private var previewOverride = false
+
     init {
         border = JBUI.Borders.empty(10)
         buildUI()
@@ -37,13 +50,31 @@ class ShopPanel : JPanel(BorderLayout()) {
     }
 
     private fun buildUI() {
-        add(balanceLabel, BorderLayout.NORTH)
+        val topPanel = JPanel(BorderLayout()).apply {
+            add(balanceLabel, BorderLayout.NORTH)
+            val previewPanel = JPanel(BorderLayout()).apply {
+                add(previewRenderer, BorderLayout.CENTER)
+                add(previewLabel, BorderLayout.SOUTH)
+            }
+            add(previewPanel, BorderLayout.CENTER)
+        }
+        add(topPanel, BorderLayout.NORTH)
         add(JBScrollPane(itemsPanel), BorderLayout.CENTER)
     }
 
     fun refresh() {
         val state = PetState.getInstance()
         balanceLabel.text = "🪙 DevCoins: ${state.devCoins}"
+
+        // Keep the preview pet's stage/mood live; cosmetics follow the real pet
+        // unless the user is actively previewing an item.
+        previewRenderer.stage = state.getCurrentStage()
+        previewRenderer.mood = state.getCurrentMood()
+        if (!previewOverride) {
+            previewRenderer.equippedHat = state.equippedHat
+            previewRenderer.equippedBackground = state.equippedBackground
+            previewLabel.text = "Preview"
+        }
 
         itemsPanel.removeAll()
 
@@ -60,6 +91,16 @@ class ShopPanel : JPanel(BorderLayout()) {
 
                 add(JBLabel("${item.name} (${item.type})"))
 
+                // Cosmetics can be previewed on the pet without buying/equipping.
+                add(JButton("Preview").apply {
+                    addActionListener {
+                        previewOverride = true
+                        if (item.type == "hat") previewRenderer.equippedHat = item.id
+                        else previewRenderer.equippedBackground = item.id
+                        previewLabel.text = "Preview: ${item.name} (not equipped)"
+                    }
+                })
+
                 if (owned) {
                     if (equipped) {
                         add(JBLabel("  ✅ Equipped"))
@@ -67,6 +108,7 @@ class ShopPanel : JPanel(BorderLayout()) {
                             addActionListener {
                                 if (item.type == "hat") state.equippedHat = ""
                                 else state.equippedBackground = ""
+                                previewOverride = false
                                 refresh()
                             }
                         })
@@ -76,6 +118,7 @@ class ShopPanel : JPanel(BorderLayout()) {
                             addActionListener {
                                 if (item.type == "hat") state.equippedHat = item.id
                                 else state.equippedBackground = item.id
+                                previewOverride = false
                                 refresh()
                             }
                         })

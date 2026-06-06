@@ -10,21 +10,26 @@ import com.intellij.ui.content.ContentFactory
 class DevPetToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        val factory = ContentFactory.getInstance()
+
         val petPanel = DevPetPanel()
-        val content = ContentFactory.getInstance().createContent(petPanel, "Pet", false)
+        val content = factory.createContent(petPanel, "Pet", false)
         toolWindow.contentManager.addContent(content)
 
         val shopPanel = ShopPanel()
-        val shopContent = ContentFactory.getInstance().createContent(shopPanel, "Shop", false)
+        val shopContent = factory.createContent(shopPanel, "Shop", false)
         toolWindow.contentManager.addContent(shopContent)
 
+        // Let the Pet panel's "Open Shop" button switch to the Shop tab.
+        petPanel.onOpenShop = { toolWindow.contentManager.setSelectedContent(shopContent) }
+
         val settingsPanel = SettingsPanel()
-        val settingsContent = ContentFactory.getInstance().createContent(settingsPanel, "Settings", false)
+        val settingsContent = factory.createContent(settingsPanel, "Settings", false)
         toolWindow.contentManager.addContent(settingsContent)
 
         if (DevPetConfig.DEV_MODE) {
             val devPanel = DevPanel()
-            val devContent = ContentFactory.getInstance().createContent(devPanel, "Dev", false)
+            val devContent = factory.createContent(devPanel, "Dev", false)
             toolWindow.contentManager.addContent(devContent)
         }
     }
