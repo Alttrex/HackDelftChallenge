@@ -16,6 +16,10 @@ class PetRenderer : JComponent() {
     var stage: EvolutionStage = EvolutionStage.EGG
     var mood: PetMood = PetMood.NEUTRAL
     var equippedHat: String = ""
+    var equippedBackground: String = ""
+
+    /** Pulled live on every repaint so the bubble appears/disappears without polling lag. */
+    var speechSupplier: () -> String = { "" }
 
     private var animFrame = 0
     private val animTimer = Timer(500) {
@@ -34,6 +38,8 @@ class PetRenderer : JComponent() {
         super.paintComponent(g)
         val g2 = g.create() as Graphics2D
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+
+        drawBackground(g2)
 
         val cx = width / 2
         val cy = height / 2
@@ -54,6 +60,7 @@ class PetRenderer : JComponent() {
 
         drawHat(g2, cx, cy + bob)
         drawMoodEffect(g2, cx, cy + bob)
+        drawSpeechBubble(g2, speechSupplier(), cx, cy + bob)
 
         g2.dispose()
     }
@@ -242,6 +249,15 @@ class PetRenderer : JComponent() {
                 g.color = Color(100, 180, 255)
                 g.fillOval(rx + 4, cy + 2, 4, 6)
             }
+            PetMood.CONCUSSED -> {
+                // Dizzy spiral eyes
+                g.color = Color.BLACK
+                g.stroke = BasicStroke(1.5f)
+                g.drawArc(lx - 4, cy - 4, 8, 8, 90, 270)
+                g.drawArc(lx - 2, cy - 2, 4, 4, -90, 270)
+                g.drawArc(rx - 4, cy - 4, 8, 8, 90, 270)
+                g.drawArc(rx - 2, cy - 2, 4, 4, -90, 270)
+            }
             else -> {
                 // Normal dot eyes
                 g.color = Color.BLACK
@@ -284,6 +300,175 @@ class PetRenderer : JComponent() {
             yp[i] = (cy - radius * Math.sin(angle)).toInt()
         }
         g.fillPolygon(xp, yp, pts * 2)
+    }
+
+    // ── Backgrounds (cosmetic, from the shop) ────────────────────────────────
+    private fun drawBackground(g: Graphics2D) {
+        val w = width
+        val h = height
+        when (equippedBackground) {
+            "bg_space" -> drawSpaceBackground(g, w, h)
+            "bg_forest" -> drawForestBackground(g, w, h)
+            "bg_ocean" -> drawOceanBackground(g, w, h)
+            else -> {} // none → transparent
+        }
+    }
+
+    private fun drawSpaceBackground(g: Graphics2D, w: Int, h: Int) {
+        g.paint = GradientPaint(0f, 0f, Color(18, 14, 38), 0f, h.toFloat(), Color(40, 24, 66))
+        g.fillRect(0, 0, w, h)
+        // Deterministic starfield (seeded so stars don't jump each repaint), with twinkle.
+        val rnd = java.util.Random(7L)
+        for (i in 0 until 50) {
+            val x = rnd.nextInt(w.coerceAtLeast(1))
+            val y = rnd.nextInt(h.coerceAtLeast(1))
+            val size = 1 + rnd.nextInt(2)
+            val twinkle = (animFrame + i) % 5 == 0
+            g.color = if (twinkle) Color(255, 255, 210) else Color(210, 210, 245)
+            g.fillOval(x, y, size, size)
+        }
+        // Planet in the corner
+        g.color = Color(120, 140, 210)
+        g.fillOval(w - 52, 12, 36, 36)
+        g.color = Color(95, 115, 185)
+        g.fillOval(w - 30, 20, 9, 9)
+        g.color = Color(150, 165, 225)
+        g.fillOval(w - 46, 30, 7, 7)
+    }
+
+    private fun drawForestBackground(g: Graphics2D, w: Int, h: Int) {
+        // Sky
+        g.paint = GradientPaint(0f, 0f, Color(176, 220, 238), 0f, h.toFloat(), Color(206, 235, 214))
+        g.fillRect(0, 0, w, h)
+        // Sun
+        g.color = Color(255, 236, 150)
+        g.fillOval(14, 14, 26, 26)
+        // Rolling hills
+        val groundY = h * 2 / 3
+        g.color = Color(120, 175, 95)
+        g.fillOval(-30, groundY - 24, w / 2 + 40, 70)
+        g.color = Color(104, 160, 84)
+        g.fillOval(w / 2 - 20, groundY - 34, w / 2 + 50, 80)
+        // Ground
+        g.color = Color(110, 168, 88)
+        g.fillRect(0, groundY, w, h - groundY)
+        // A few simple pine trees
+        drawPine(g, w / 6, groundY)
+        drawPine(g, w - w / 6, groundY - 6)
+    }
+
+    private fun drawPine(g: Graphics2D, baseX: Int, baseY: Int) {
+        g.color = Color(110, 80, 50)
+        g.fillRect(baseX - 2, baseY - 8, 4, 12)
+        g.color = Color(60, 120, 70)
+        for (layer in 0 until 3) {
+            val ly = baseY - 8 - layer * 8
+            val half = 12 - layer * 3
+            val xp = intArrayOf(baseX - half, baseX + half, baseX)
+            val yp = intArrayOf(ly, ly, ly - 12)
+            g.fillPolygon(xp, yp, 3)
+        }
+    }
+
+    private fun drawOceanBackground(g: Graphics2D, w: Int, h: Int) {
+        val seaY = h / 2
+        // Sky
+        g.paint = GradientPaint(0f, 0f, Color(186, 226, 245), 0f, seaY.toFloat(), Color(224, 244, 252))
+        g.fillRect(0, 0, w, seaY)
+        // Sun
+        g.color = Color(255, 226, 130)
+        g.fillOval(w - 48, 16, 28, 28)
+        // Sea
+        g.paint = GradientPaint(0f, seaY.toFloat(), Color(70, 150, 205), 0f, h.toFloat(), Color(40, 110, 170))
+        g.fillRect(0, seaY, w, h - seaY)
+        // Animated wave crests
+        g.color = Color(255, 255, 255, 120)
+        g.stroke = BasicStroke(2f)
+        val shift = animFrame * 6
+        var row = seaY + 12
+        while (row < h) {
+            var x = -20 + (shift % 40)
+            while (x < w) {
+                g.drawArc(x, row, 20, 8, 0, 180)
+                x += 40
+            }
+            row += 18
+        }
+    }
+
+    // ── Speech bubble ────────────────────────────────────────────────────────
+    private fun drawSpeechBubble(g: Graphics2D, text: String, cx: Int, cy: Int) {
+        if (text.isBlank() || width < 60) return
+
+        g.font = Font("SansSerif", Font.PLAIN, 11)
+        val fm = g.fontMetrics
+        val maxBubbleWidth = (width - 12).coerceAtLeast(60)
+        val lines = wrapText(text, fm, maxBubbleWidth - 16)
+        val lineH = fm.height
+        val textW = lines.maxOf { fm.stringWidth(it) }
+        val padX = 8
+        val padY = 6
+        val bw = (textW + padX * 2).coerceAtMost(maxBubbleWidth)
+        val bh = lineH * lines.size + padY * 2
+
+        // Anchor the bubble just above the pet's head so the tail emerges from the pet.
+        val headTop = cy + when (stage) {
+            EvolutionStage.EGG -> -38
+            EvolutionStage.BABY -> -42
+            EvolutionStage.TEEN -> -50
+            EvolutionStage.ADULT -> -54
+        }
+        val tipX = cx
+        val tailTipY = headTop + 6 // dip slightly into the head
+        var by = headTop - 8 - bh
+        if (by < 2) by = 2
+        val bubbleBottom = by + bh
+        val tailBottom = maxOf(tailTipY, bubbleBottom + 6)
+
+        var bx = cx - bw / 2
+        bx = bx.coerceIn(2, (width - bw - 2).coerceAtLeast(2))
+
+        // Bubble body
+        g.color = Color(255, 255, 255, 240)
+        g.fillRoundRect(bx, by, bw, bh, 12, 12)
+        // Tail pointing down into the pet's head
+        g.fillPolygon(
+            intArrayOf(tipX - 6, tipX + 6, tipX),
+            intArrayOf(bubbleBottom - 1, bubbleBottom - 1, tailBottom),
+            3,
+        )
+        // Border
+        g.color = Color(120, 120, 120)
+        g.stroke = BasicStroke(1.5f)
+        g.drawRoundRect(bx, by, bw, bh, 12, 12)
+        g.drawLine(tipX - 6, bubbleBottom, tipX, tailBottom)
+        g.drawLine(tipX, tailBottom, tipX + 6, bubbleBottom)
+
+        // Text
+        g.color = Color(40, 40, 40)
+        var ty = by + padY + fm.ascent
+        for (line in lines) {
+            val lx = bx + (bw - fm.stringWidth(line)) / 2
+            g.drawString(line, lx, ty)
+            ty += lineH
+        }
+    }
+
+    private fun wrapText(text: String, fm: FontMetrics, maxWidth: Int): List<String> {
+        val words = text.split(" ")
+        val lines = mutableListOf<String>()
+        var current = StringBuilder()
+        for (word in words) {
+            val candidate = if (current.isEmpty()) word else "$current $word"
+            if (current.isEmpty() || fm.stringWidth(candidate) <= maxWidth) {
+                current = StringBuilder(candidate)
+            } else {
+                lines.add(current.toString())
+                current = StringBuilder(word)
+            }
+        }
+        if (current.isNotEmpty()) lines.add(current.toString())
+        return lines
     }
 
     private fun drawHat(g: Graphics2D, cx: Int, cy: Int) {
@@ -368,6 +553,25 @@ class PetRenderer : JComponent() {
                         drawStar(g, cx + pos.first, cy + pos.second, 4)
                     }
                 }
+                // "Pooped" build artifact dropping below the pet
+                val dropY = cy + 36 + animFrame * 4
+                g.color = Color(120, 90, 60)
+                g.fillRoundRect(cx - 8, dropY, 16, 12, 4, 4)
+                g.color = Color(160, 120, 80)
+                g.fillRoundRect(cx - 8, dropY, 16, 4, 4, 4)
+                g.color = Color(255, 215, 0, 220)
+                drawStar(g, cx + 12, dropY - 2, 3)
+            }
+            PetMood.CONCUSSED -> {
+                // Spinning stars circling the head (dizzy)
+                g.color = Color(255, 215, 0, 220)
+                val radius = 34
+                for (i in 0 until 3) {
+                    val angle = Math.toRadians((animFrame * 30 + i * 120).toDouble())
+                    val sx = cx + (radius * Math.cos(angle)).toInt()
+                    val sy = cy - 38 + (radius / 2 * Math.sin(angle)).toInt()
+                    drawStar(g, sx, sy, 4)
+                }
             }
             PetMood.SICK -> {
                 // Green swirls
@@ -418,6 +622,7 @@ class PetRenderer : JComponent() {
         PetMood.SICK -> Color(214, 222, 120)     // sickly greenish yellow
         PetMood.EATING -> Color(255, 184, 80)    // warm orange-yellow
         PetMood.BUILDING -> Color(255, 200, 120) // light amber
+        PetMood.CONCUSSED -> Color(200, 205, 150) // washed-out, woozy
     }
 
     private fun lighten(c: Color, factor: Float): Color {

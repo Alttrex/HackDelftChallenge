@@ -11,6 +11,7 @@ import java.awt.GridLayout
 import java.util.Timer
 import javax.swing.BorderFactory
 import javax.swing.BoxLayout
+import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.SwingConstants
@@ -18,6 +19,9 @@ import javax.swing.SwingUtilities
 import kotlin.concurrent.scheduleAtFixedRate
 
 class DevPetPanel : JPanel(BorderLayout()) {
+
+    /** Wired by the tool window factory so the Shop button can switch tabs. */
+    var onOpenShop: () -> Unit = {}
 
     private val petRenderer = PetRenderer()
 
@@ -60,6 +64,15 @@ class DevPetPanel : JPanel(BorderLayout()) {
         font = font.deriveFont(11f)
     }
 
+    private val achievementsLabel = JBLabel().apply {
+        horizontalAlignment = SwingConstants.CENTER
+        font = font.deriveFont(11f)
+    }
+
+    private val shopButton = JButton("🛒 Open Shop").apply {
+        addActionListener { onOpenShop() }
+    }
+
     private val animationLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
         font = font.deriveFont(Font.ITALIC, 12f)
@@ -68,6 +81,8 @@ class DevPetPanel : JPanel(BorderLayout()) {
 
     init {
         border = JBUI.Borders.empty(10)
+        // Bubble text is pulled live by the renderer every repaint (no polling lag).
+        petRenderer.speechSupplier = { PetState.getInstance().currentSpeech() }
         buildUI()
         refresh()
         startRefreshTimer()
@@ -93,7 +108,7 @@ class DevPetPanel : JPanel(BorderLayout()) {
             add(labelPanel, BorderLayout.SOUTH)
         }
 
-        // Bottom: Stats
+        // Stats
         val statsPanel = JPanel(GridLayout(0, 1, 4, 4)).apply {
             border = BorderFactory.createTitledBorder("Stats")
             add(levelLabel)
@@ -101,11 +116,18 @@ class DevPetPanel : JPanel(BorderLayout()) {
             add(quotaBar)
             add(coinsLabel)
             add(statsLabel)
+            add(achievementsLabel)
+        }
+
+        val bottomPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            add(statsPanel)
+            add(JPanel().apply { add(shopButton) })
         }
 
         add(topPanel, BorderLayout.NORTH)
         add(centerPanel, BorderLayout.CENTER)
-        add(statsPanel, BorderLayout.SOUTH)
+        add(bottomPanel, BorderLayout.SOUTH)
     }
 
     private fun refresh() {
@@ -124,6 +146,7 @@ class DevPetPanel : JPanel(BorderLayout()) {
         petRenderer.stage = stage
         petRenderer.mood = mood
         petRenderer.equippedHat = state.equippedHat
+        petRenderer.equippedBackground = state.equippedBackground
 
         moodLabel.text = "Mood: ${mood.displayName}"
 
@@ -131,9 +154,10 @@ class DevPetPanel : JPanel(BorderLayout()) {
         animationLabel.text = when (mood) {
             PetMood.EATING -> "*nom nom nom* eating your code..."
             PetMood.BUILDING -> "*plop* build artifact created!"
-            PetMood.SICK -> "Blegh! That code tasted artificial..."
+            PetMood.SICK -> "Blegh! Type human code to recover (${state.healingLines}/${PetState.SICK_RECOVERY_LINES})"
             PetMood.HAPPY -> "Happy and generating DevCoins!"
             PetMood.HUNGRY -> "Feed me some code!"
+            PetMood.CONCUSSED -> "Dizzy! Type human code to recover (${state.healingLines}/${PetState.SICK_RECOVERY_LINES})"
             PetMood.NEUTRAL -> ""
         }
 
@@ -147,6 +171,7 @@ class DevPetPanel : JPanel(BorderLayout()) {
 
         coinsLabel.text = "DevCoins: ${state.devCoins}"
         statsLabel.text = "Total LOC: ${state.totalLinesWritten} | Builds: ${state.totalSuccessfulBuilds}/${state.totalBuilds}"
+        achievementsLabel.text = "🏆 Achievements: ${state.unlockedAchievements.size}"
     }
 
     private fun startRefreshTimer() {

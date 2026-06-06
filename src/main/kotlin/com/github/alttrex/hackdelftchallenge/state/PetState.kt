@@ -52,7 +52,8 @@ enum class PetMood(val displayName: String, val emoji: String) {
     HUNGRY("Hungry", "😟"),
     SICK("Sick", "🤢"),
     EATING("Eating", "😋"),
-    BUILDING("Building", "🔨");
+    BUILDING("Building", "🔨"),
+    CONCUSSED("Concussed", "😵");
 }
 
 data class Cosmetic(
@@ -90,6 +91,16 @@ class PetState : PersistentStateComponent<PetState> {
     // Coin generation tracking
     var lastCoinGenerationTime: Long = System.currentTimeMillis()
 
+    /** Genuine human lines typed while sick; once it hits the threshold the pet heals. */
+    var healingLines: Int = 0
+
+    // ── Speech bubble (transient compliments/reactions) ──────────────────────
+    var speechMessage: String = ""
+    var speechUntil: Long = 0
+
+    // ── Achievements ────────────────────────────────────────────────────────
+    var unlockedAchievements: MutableList<String> = mutableListOf()
+
     fun getCurrentStage(): EvolutionStage = try {
         EvolutionStage.valueOf(stage)
     } catch (_: Exception) {
@@ -126,7 +137,45 @@ class PetState : PersistentStateComponent<PetState> {
         if (success) {
             totalSuccessfulBuilds++
             addXp(25)
+            addCoins(10) // reward a successful build
         }
+    }
+
+    fun addCoins(amount: Int) {
+        if (amount > 0) devCoins += amount
+    }
+
+    /** Make the pet "say" something for [durationMs]; shown as a speech bubble in the UI. */
+    fun say(message: String, durationMs: Long = 4500L) {
+        speechMessage = message
+        speechUntil = System.currentTimeMillis() + durationMs
+    }
+
+    /** The currently active speech text, or empty if nothing is being said right now. */
+    fun currentSpeech(): String =
+        if (System.currentTimeMillis() < speechUntil) speechMessage else ""
+
+    /**
+     * Awards XP/lines for a single line of genuine code.`
+     * [testMultiplier] should be >1 for files under src/test to reward test writing.
+     */
+    fun addCodeLine(testMultiplier: Int = 1) {
+        checkDayReset()
+        dailyLinesWritten++
+        totalLinesWritten++
+        addXp(2 * testMultiplier)
+
+        // Nurse the pet back to health: writing genuine code heals sickness.
+        if (getCurrentMood() == PetMood.SICK) {
+            healingLines += testMultiplier
+            if (healingLines >= SICK_RECOVERY_LINES) {
+                healingLines = 0
+                mood = PetMood.NEUTRAL.name // recovered; updateMood() refines below
+                println("[DevPet] 💚 Nursed back to health!")
+            }
+        }
+
+        updateMood()
     }
 
     fun generateCoins(): Int {
@@ -153,10 +202,15 @@ class PetState : PersistentStateComponent<PetState> {
     }
 
     private fun updateMood() {
+        val current = getCurrentMood()
+
+        // Sickness/concussion is NOT cleared by mood recompute; it only lifts once the
+        // pet has been nursed with enough genuine human lines (see addCodeLine).
         mood = when {
-            getCurrentMood() == PetMood.SICK -> PetMood.SICK.name
-            getCurrentMood() == PetMood.EATING -> PetMood.EATING.name
-            getCurrentMood() == PetMood.BUILDING -> PetMood.BUILDING.name
+            current == PetMood.SICK -> PetMood.SICK.name
+            current == PetMood.CONCUSSED -> PetMood.CONCUSSED.name
+            current == PetMood.EATING -> PetMood.EATING.name
+            current == PetMood.BUILDING -> PetMood.BUILDING.name
             dailyLinesWritten >= dailyQuota -> PetMood.HAPPY.name
             dailyLinesWritten >= dailyQuota / 2 -> PetMood.NEUTRAL.name
             else -> PetMood.HUNGRY.name
@@ -165,6 +219,7 @@ class PetState : PersistentStateComponent<PetState> {
 
     fun makeSick() {
         mood = PetMood.SICK.name
+        healingLines = 0
     }
 
     fun setEating() {
@@ -190,6 +245,9 @@ class PetState : PersistentStateComponent<PetState> {
     }
 
     companion object {
+        // Number of lines needed to nurse a sick pet back to health.
+        const val SICK_RECOVERY_LINES = 10
+
         fun getInstance(): PetState =
             ApplicationManager.getApplication().getService(PetState::class.java)
 
