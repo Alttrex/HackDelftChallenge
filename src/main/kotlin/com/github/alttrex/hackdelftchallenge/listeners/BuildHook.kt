@@ -12,6 +12,13 @@ import kotlin.concurrent.schedule
 /**
  * Intercepts build/run executions to trigger the pet's "eating code → pooping build artifact" animation.
  * Registered via plugin.xml as a project-level message bus listener.
+ * dsfdsfdsffdsfs
+ * dfdsfxfxdfx
+ * dxfxdfdxfx
+ * dxffxfxd
+ * fasfdsfds
+ * dfdsfdsf
+ *
  */
 class BuildHook : ExecutionListener {
 

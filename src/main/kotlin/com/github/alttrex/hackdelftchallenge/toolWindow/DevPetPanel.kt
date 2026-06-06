@@ -48,10 +48,11 @@ class DevPetPanel : JPanel(BorderLayout()) {
         string = "XP"
     }
 
-    private val quotaBar = JProgressBar().apply {
-        isStringPainted = true
-        string = "Daily Quota"
-        foreground = JBColor(0x4CAF50, 0x66BB6A)
+    private val quotaBar = SegmentedQuotaBar()
+
+    private val quotaLegend = JBLabel().apply {
+        horizontalAlignment = SwingConstants.CENTER
+        font = font.deriveFont(10f)
     }
 
     private val coinsLabel = JBLabel().apply {
@@ -114,6 +115,7 @@ class DevPetPanel : JPanel(BorderLayout()) {
             add(levelLabel)
             add(xpBar)
             add(quotaBar)
+            add(quotaLegend)
             add(coinsLabel)
             add(statsLabel)
             add(achievementsLabel)
@@ -165,12 +167,25 @@ class DevPetPanel : JPanel(BorderLayout()) {
         xpBar.value = state.xp
         xpBar.string = "XP: ${state.xp} / ${state.xpToNextLevel}"
 
-        quotaBar.maximum = state.dailyQuota
-        quotaBar.value = state.dailyLinesWritten.coerceAtMost(state.dailyQuota)
-        quotaBar.string = "LOC: ${state.dailyLinesWritten} / ${state.dailyQuota}"
+        val javadoc = state.dailyJavadocLinesWritten
+        val tests = state.dailyTestLinesWritten
+        val prod = (state.dailyLinesWritten - javadoc - tests).coerceAtLeast(0)
+
+        quotaBar.max = state.dailyQuota
+        quotaBar.prodLines = prod
+        quotaBar.javadocLines = javadoc
+        quotaBar.testLines = tests
+        quotaBar.text = "LOC: ${state.dailyLinesWritten} / ${state.dailyQuota}"
+        quotaBar.repaint()
+
+        quotaLegend.text = "<html>" +
+            "<font color='#4CAF50'>\u25A0</font> Prod $prod &nbsp; " +
+            "<font color='#2196F3'>\u25A0</font> Javadoc $javadoc &nbsp; " +
+            "<font color='#9C27B0'>\u25A0</font> Tests $tests</html>"
 
         coinsLabel.text = "DevCoins: ${state.devCoins}"
-        statsLabel.text = "Total LOC: ${state.totalLinesWritten} | Builds: ${state.totalSuccessfulBuilds}/${state.totalBuilds}"
+        statsLabel.text = "<html>Total LOC: ${state.totalLinesWritten} | Builds: ${state.totalSuccessfulBuilds}/${state.totalBuilds}<br>" +
+            "📝 Javadoc: ${state.totalJavadocLinesWritten} | 🧪 Tests: ${state.totalTestLinesWritten}</html>"
         achievementsLabel.text = "🏆 Achievements: ${state.unlockedAchievements.size}"
     }
 
