@@ -6,6 +6,7 @@ import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.RenderingHints
+import java.awt.geom.RoundRectangle2D
 import javax.swing.JComponent
 
 /**
@@ -35,37 +36,50 @@ class SegmentedQuotaBar : JComponent() {
 
             val w = width
             val h = height
-            val arc = JBUI.scale(8)
+            val arc = JBUI.scale(8).toFloat()
+            val trackW = (w - 1).toFloat()
+            val trackH = (h - 1).toFloat()
+
             val safeMax = max.coerceAtLeast(1)
-
-            // Track / background
-            g2.color = TRACK_COLOR
-            g2.fillRoundRect(0, 0, w - 1, h - 1, arc, arc)
-
-            // Segments, capped so the total never overflows the track.
-            val capacity = safeMax
             val prod = prodLines.coerceAtLeast(0)
             val doc = javadocLines.coerceAtLeast(0)
             val test = testLines.coerceAtLeast(0)
+            val total = prod + doc + test
+
+            // Scale segments against the quota, but once the quota is met (or exceeded)
+            // scale against the total so each type keeps its proportion within the full bar.
+            val capacity = maxOf(safeMax, total)
+
+            val track = RoundRectangle2D.Float(0f, 0f, trackW, trackH, arc, arc)
+
+            // Track / background
+            g2.color = TRACK_COLOR
+            g2.fill(track)
+
+            // Clip to the rounded track so segments share its rounded corners
+            // while internal divisions stay crisp and contained.
+            val oldClip = g2.clip
+            g2.clip(track)
 
             var consumed = 0
-            var x = 0
+            var prevX = 0
             for ((count, color) in listOf(prod to PROD_COLOR, doc to JAVADOC_COLOR, test to TEST_COLOR)) {
                 if (count <= 0) continue
-                val drawable = (count).coerceAtMost(capacity - consumed)
-                if (drawable <= 0) break
-                val segWidth = Math.round(drawable.toDouble() / capacity * (w - 1)).toInt()
+                consumed += count
+                val nextX = Math.round(consumed.toDouble() / capacity * trackW).toInt()
+                val segWidth = nextX - prevX
                 if (segWidth > 0) {
                     g2.color = color
-                    g2.fillRoundRect(x, 0, segWidth, h - 1, arc, arc)
+                    g2.fillRect(prevX, 0, segWidth, h)
                 }
-                x += segWidth
-                consumed += drawable
+                prevX = nextX
             }
+
+            g2.clip = oldClip
 
             // Border
             g2.color = TRACK_BORDER
-            g2.drawRoundRect(0, 0, w - 1, h - 1, arc, arc)
+            g2.draw(track)
 
             // Centered text
             if (text.isNotEmpty()) {

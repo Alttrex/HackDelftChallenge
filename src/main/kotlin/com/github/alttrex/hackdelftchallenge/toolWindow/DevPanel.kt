@@ -168,6 +168,10 @@ class DevPanel : JPanel(BorderLayout()) {
                 state.totalLinesWritten = 0
                 state.totalBuilds = 0
                 state.totalSuccessfulBuilds = 0
+                state.dailyJavadocLinesWritten = 0
+                state.totalJavadocLinesWritten = 0
+                state.dailyTestLinesWritten = 0
+                state.totalTestLinesWritten = 0
                 state.mood = PetMood.NEUTRAL.name
                 state.stage = EvolutionStage.EGG.name
                 state.equippedHat = ""
