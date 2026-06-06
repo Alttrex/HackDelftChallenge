@@ -1,5 +1,6 @@
 package com.github.alttrex.hackdelftchallenge.toolWindow
 
+import com.github.alttrex.hackdelftchallenge.listeners.CodeTracker
 import com.github.alttrex.hackdelftchallenge.state.EvolutionStage
 import com.github.alttrex.hackdelftchallenge.state.PetMood
 import com.github.alttrex.hackdelftchallenge.state.PetState
@@ -135,6 +136,18 @@ class DevPanel : JPanel(BorderLayout()) {
 
         grid.add(actionsPanel)
 
+        // ── Percentages ───────────────────────────────
+        val aiLabel = JBLabel("AI: —")
+        val testLabel = JBLabel("Tests: —")
+        val cleanLabel = JBLabel("Clean: —")
+        val healthLabel = JBLabel("Health: —")
+        val percentPanel = JPanel(GridLayout(0, 1, 0, 2))
+        percentPanel.add(aiLabel)
+        percentPanel.add(testLabel)
+        percentPanel.add(cleanLabel)
+        percentPanel.add(healthLabel)
+        grid.add(percentPanel)
+
         // ── Reset Button ─────────────────────────────────
         val resetPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
         val resetBtn = JButton("Reset All State")
@@ -187,6 +200,13 @@ class DevPanel : JPanel(BorderLayout()) {
                     coinsSpinner, dailyLinesSpinner, quotaSpinner, totalLinesSpinner,
                     buildsSpinner, successBuildsSpinner, hatCombo
                 )
+                val tracker = CodeTracker.instance
+                if (tracker != null) {
+                    aiLabel.text = "AI: %.1f%%".format(100.0 - tracker.getAiScore())
+                    testLabel.text = "Tests: %.1f%%".format(tracker.getTestScore())
+                    cleanLabel.text = "Clean: %.1f%%".format(tracker.getCleanlinessScore())
+                    healthLabel.text = "Health: %.1f%%".format(tracker.getOverallHealthScore())
+                }
             }
         }
         syncTimer.isRepeats = true
