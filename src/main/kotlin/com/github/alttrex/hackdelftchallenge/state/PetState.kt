@@ -83,6 +83,11 @@ class PetState : PersistentStateComponent<PetState> {
     var totalBuilds: Int = 0
     var totalSuccessfulBuilds: Int = 0
 
+    var dailyJavadocLinesWritten: Int = 0
+    var totalJavadocLinesWritten: Int = 0
+    var dailyTestLinesWritten: Int = 0
+    var totalTestLinesWritten: Int = 0
+
     var ownedCosmetics: MutableList<String> = mutableListOf()
     var equippedHat: String = ""
     var equippedBackground: String = ""
@@ -121,6 +126,28 @@ class PetState : PersistentStateComponent<PetState> {
         updateMood()
     }
 
+    /** A line of Javadoc documentation — rewarded more than plain code. */
+    fun addJavadocLine() {
+        checkDayReset()
+        dailyLinesWritten++
+        totalLinesWritten++
+        dailyJavadocLinesWritten++
+        totalJavadocLinesWritten++
+        addXp(3)
+        updateMood()
+    }
+
+    /** A line of test code — rewarded the most to encourage testing. */
+    fun addTestLine() {
+        checkDayReset()
+        dailyLinesWritten++
+        totalLinesWritten++
+        dailyTestLinesWritten++
+        totalTestLinesWritten++
+        addXp(5)
+        updateMood()
+    }
+
     fun recordBuild(success: Boolean) {
         totalBuilds++
         if (success) {
@@ -147,6 +174,8 @@ class PetState : PersistentStateComponent<PetState> {
         val today = LocalDate.now().toString()
         if (lastActiveDate != today) {
             dailyLinesWritten = 0
+            dailyJavadocLinesWritten = 0
+            dailyTestLinesWritten = 0
             lastActiveDate = today
             lastCoinGenerationTime = System.currentTimeMillis()
         }
