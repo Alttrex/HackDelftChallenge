@@ -14,6 +14,9 @@ import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.SwingConstants
+import javax.swing.SwingUtilities
+import java.util.Timer
+import kotlin.concurrent.scheduleAtFixedRate
 
 class ShopPanel : JPanel(BorderLayout()) {
 
@@ -30,6 +33,7 @@ class ShopPanel : JPanel(BorderLayout()) {
         border = JBUI.Borders.empty(10)
         buildUI()
         refresh()
+        startRefreshTimer()
     }
 
     private fun buildUI() {
@@ -102,5 +106,11 @@ class ShopPanel : JPanel(BorderLayout()) {
 
         itemsPanel.revalidate()
         itemsPanel.repaint()
+    }
+
+    private fun startRefreshTimer() {
+        Timer("DevPet-Shop-Refresh", true).scheduleAtFixedRate(0L, 2000L) {
+            SwingUtilities.invokeLater { refresh() }
+        }
     }
 }

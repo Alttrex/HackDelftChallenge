@@ -19,10 +19,7 @@ import kotlin.concurrent.scheduleAtFixedRate
 
 class DevPetPanel : JPanel(BorderLayout()) {
 
-    private val petAsciiLabel = JBLabel().apply {
-        horizontalAlignment = SwingConstants.CENTER
-        font = Font("Monospaced", Font.PLAIN, 12)
-    }
+    private val petRenderer = PetRenderer()
 
     private val nameLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
@@ -84,13 +81,16 @@ class DevPetPanel : JPanel(BorderLayout()) {
             add(stageLabel)
         }
 
-        // Center: Pet ASCII art + mood + animation
-        val centerPanel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        // Center: Pet graphic + mood + animation
+        val centerPanel = JPanel(BorderLayout()).apply {
             border = JBUI.Borders.empty(10)
-            add(petAsciiLabel)
-            add(moodLabel)
-            add(animationLabel)
+            add(petRenderer, BorderLayout.CENTER)
+            val labelPanel = JPanel().apply {
+                layout = BoxLayout(this, BoxLayout.Y_AXIS)
+                add(moodLabel)
+                add(animationLabel)
+            }
+            add(labelPanel, BorderLayout.SOUTH)
         }
 
         // Bottom: Stats
@@ -120,19 +120,20 @@ class DevPetPanel : JPanel(BorderLayout()) {
         stageLabel.text = "Stage: ${stage.displayName}"
         levelLabel.text = "Level ${state.level}"
 
-        // Pet ASCII art with mood variation
-        val petText = buildPetDisplay(stage.ascii, mood)
-        petAsciiLabel.text = "<html><pre style='text-align:center'>$petText</pre></html>"
+        // Update pet renderer
+        petRenderer.stage = stage
+        petRenderer.mood = mood
+        petRenderer.equippedHat = state.equippedHat
 
-        moodLabel.text = "Mood: ${mood.emoji} ${mood.displayName}"
+        moodLabel.text = "Mood: ${mood.displayName}"
 
         // Animation text
         animationLabel.text = when (mood) {
-            PetMood.EATING -> "🍔 *nom nom nom* eating your code..."
-            PetMood.BUILDING -> "💩 *plop* build artifact created!"
-            PetMood.SICK -> "🤢 Blegh! That code tasted artificial..."
-            PetMood.HAPPY -> "✨ Happy and generating DevCoins!"
-            PetMood.HUNGRY -> "😟 Feed me some code!"
+            PetMood.EATING -> "*nom nom nom* eating your code..."
+            PetMood.BUILDING -> "*plop* build artifact created!"
+            PetMood.SICK -> "Blegh! That code tasted artificial..."
+            PetMood.HAPPY -> "Happy and generating DevCoins!"
+            PetMood.HUNGRY -> "Feed me some code!"
             PetMood.NEUTRAL -> ""
         }
 
@@ -144,20 +145,8 @@ class DevPetPanel : JPanel(BorderLayout()) {
         quotaBar.value = state.dailyLinesWritten.coerceAtMost(state.dailyQuota)
         quotaBar.string = "LOC: ${state.dailyLinesWritten} / ${state.dailyQuota}"
 
-        coinsLabel.text = "🪙 DevCoins: ${state.devCoins}"
+        coinsLabel.text = "DevCoins: ${state.devCoins}"
         statsLabel.text = "Total LOC: ${state.totalLinesWritten} | Builds: ${state.totalSuccessfulBuilds}/${state.totalBuilds}"
-    }
-
-    private fun buildPetDisplay(ascii: String, mood: PetMood): String {
-        val equipped = PetState.getInstance().equippedHat
-        val hatArt = when (equipped) {
-            "top_hat" -> "   ___\n  |   |\n  |___|"
-            "crown" -> "  👑"
-            "party_hat" -> "    ▲\n   / \\"
-            "wizard_hat" -> "    ★\n   /|\\\n  / | \\"
-            else -> ""
-        }
-        return if (hatArt.isNotEmpty()) "$hatArt\n$ascii" else ascii
     }
 
     private fun startRefreshTimer() {

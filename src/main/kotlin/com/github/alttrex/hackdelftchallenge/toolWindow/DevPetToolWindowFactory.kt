@@ -1,5 +1,6 @@
 package com.github.alttrex.hackdelftchallenge.toolWindow
 
+import com.github.alttrex.hackdelftchallenge.DevPetConfig
 import com.github.alttrex.hackdelftchallenge.state.PetState
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
@@ -20,6 +21,12 @@ class DevPetToolWindowFactory : ToolWindowFactory {
         val settingsPanel = SettingsPanel()
         val settingsContent = ContentFactory.getInstance().createContent(settingsPanel, "Settings", false)
         toolWindow.contentManager.addContent(settingsContent)
+
+        if (DevPetConfig.DEV_MODE) {
+            val devPanel = DevPanel()
+            val devContent = ContentFactory.getInstance().createContent(devPanel, "Dev", false)
+            toolWindow.contentManager.addContent(devContent)
+        }
     }
 
     override fun shouldBeAvailable(project: Project) = true
