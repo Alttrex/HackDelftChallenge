@@ -34,9 +34,6 @@ import kotlin.concurrent.fixedRateTimer
 class CodeTracker : BulkAwareDocumentListener {
 
     companion object {
-        // XP multiplier for lines written under a test source root
-        private const val TEST_MULTIPLIER = 2
-
         // Compliments the pet says when it sees you writing tests.
         private val TEST_COMPLIMENTS = listOf(
             "Ooh, writing tests? You're the best!",
@@ -350,15 +347,17 @@ class CodeTracker : BulkAwareDocumentListener {
             log("✍️ $codeLines line(s) of code written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
         }
 
-        if (testLines > 0) {
-            repeat(testLines) { state.addCodeLine(TEST_MULTIPLIER) }
-            countedLines += testLines
-            log("🧪 $testLines test line(s) written (x$TEST_MULTIPLIER XP). Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
-            state.say(TEST_COMPLIMENTS.random())
+        if (docLines > 0) {
+            repeat(docLines) { state.addJavadocLine() }
+            countedLines += docLines
+            log("📝 $docLines documentation line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
         }
 
-        if (docLines > 0) {
-            log("📝 $docLines documentation line(s) detected (no XP).")
+        if (testLines > 0) {
+            repeat(testLines) { state.addTestLine() }
+            countedLines += testLines
+            log("🧪 $testLines test line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+            state.say(TEST_COMPLIMENTS.random())
         }
 
         if (countedLines > 0) {
