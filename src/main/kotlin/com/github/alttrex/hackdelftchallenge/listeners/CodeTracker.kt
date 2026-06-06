@@ -5,6 +5,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.event.BulkAwareDocumentListener
 import com.intellij.openapi.editor.event.DocumentEvent
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.PsiManager
@@ -35,6 +36,20 @@ class CodeTracker : BulkAwareDocumentListener {
         @Volatile
         var instance: CodeTracker? = null
             private set
+
+        // Comment / documentation line prefixes across common IntelliJ-supported languages.
+        // Covers C-family (// /* * /** ///), scripting (#), SQL/Haskell/Lua (--),
+        // markup (<!--), Python/Kotlin docstrings (""" '''), and Lisp/asm (;).
+        private val DOC_PREFIXES = listOf(
+            "/**", "/*", "*/", "*", "///", "//",
+            "#", "--", "<!--", "-->", "\"\"\"", "'''", ";;", ";"
+        )
+
+        // Directory fragments that indicate a test source location.
+        private val TEST_DIR_MARKERS = listOf(
+            "/test/", "/tests/", "/__tests__/", "/spec/", "/specs/",
+            "src/test", "/testing/", "/it/"
+        )
     }
 
     var project: Project? = null
@@ -78,7 +93,9 @@ class CodeTracker : BulkAwareDocumentListener {
 
     // Accumulated snippets and line counts between flushes
     private val pendingSnippets = mutableListOf<String>()
-    private var pendingHumanLines = 0
+    private var pendingCodeLines = 0
+    private var pendingDocLines = 0
+    private var pendingTestLines = 0
     private val lock = Any()
 
     private var timer: Timer? = null
@@ -141,10 +158,23 @@ class CodeTracker : BulkAwareDocumentListener {
         val newFragment = event.newFragment.toString()
         if (newFragment.isEmpty()) return
 
+        val insertedLines = newFragment.count { it == '\n' }
+        val completedLine = if (insertedLines > 0) lineTextAtOffset(event) else ""
+        val rewardableLine = insertedLines > 0 && completedLine.isNotBlank()
+        val isTestLine = rewardableLine && isTestFile(event)
+        val isDocLine = rewardableLine && !isTestLine && isDocLine(completedLine)
+
         synchronized(lock) {
             totalCharsInProject += newFragment.length
-            pendingHumanLines += newFragment.count { it == '\n' }
             pendingSnippets.add(newFragment)
+
+            if (rewardableLine) {
+                when {
+                    isTestLine -> pendingTestLines += insertedLines
+                    isDocLine -> pendingDocLines += insertedLines
+                    else -> pendingCodeLines += insertedLines
+                }
+            }
         }
     }
 
@@ -229,7 +259,7 @@ class CodeTracker : BulkAwareDocumentListener {
 
             val request = HttpRequest.newBuilder()
                 .uri(URI("https://api.openai.com/v1/chat/completions"))
-                .header("Authorization", "Bearer $openAiApiKey")
+                .header("Authorization", "Bearer " + openAiApiKey)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build()
@@ -255,15 +285,21 @@ class CodeTracker : BulkAwareDocumentListener {
     /** Flushes accumulated changes to [PetState]. Called by the timer. */
     private fun flush() {
         val snippets: List<String>
-        val lines: Int
+        val codeLines: Int
+        val docLines: Int
+        val testLines: Int
         synchronized(lock) {
             snippets = pendingSnippets.toList()
-            lines = pendingHumanLines
+            codeLines = pendingCodeLines
+            docLines = pendingDocLines
+            testLines = pendingTestLines
             pendingSnippets.clear()
-            pendingHumanLines = 0
+            pendingCodeLines = 0
+            pendingDocLines = 0
+            pendingTestLines = 0
         }
 
-        if (snippets.isEmpty() && lines == 0) return
+        if (snippets.isEmpty() && codeLines == 0 && docLines == 0 && testLines == 0) return
 
         // Run AI detection on accumulated snippets
         if (snippets.isNotEmpty()) {
@@ -291,12 +327,62 @@ class CodeTracker : BulkAwareDocumentListener {
                 "[AI: ${String.format("%.1f", getAiScore())}, Clean: ${String.format("%.1f", getCleanlinessScore())}, Tests: ${String.format("%.1f", getTestScore())}]")
         }
 
-        if (lines > 0) {
-            repeat(lines) {
-                state.addLine()
-            }
-            log("✍️ $lines line(s) of code written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+        if (codeLines > 0) {
+            repeat(codeLines) { state.addLine() }
+            log("✍️ $codeLines line(s) of code written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
         }
+
+        if (docLines > 0) {
+            repeat(docLines) { state.addJavadocLine() }
+            log("📝 $docLines documentation line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+        }
+
+        if (testLines > 0) {
+            repeat(testLines) { state.addTestLine() }
+            log("🧪 $testLines test line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+        }
+    }
+
+    /** Resolves the [DocumentEvent]'s backing file path, or null if unavailable. */
+    private fun filePath(event: DocumentEvent): String? =
+        FileDocumentManager.getInstance().getFile(event.document)?.path
+
+    /**
+     * Language-agnostic test detection: a file is considered a test if it lives under a
+     * known test directory or its name follows a common test/spec naming convention
+     * (e.g. FooTest.kt, foo_test.go, foo.spec.ts, TestFoo.py, FooSpec.scala).
+     */
+    private fun isTestFile(event: DocumentEvent): Boolean {
+        val path = filePath(event)?.replace('\\', '/')?.lowercase() ?: return false
+        if (TEST_DIR_MARKERS.any { path.contains(it) }) return true
+
+        val fileName = path.substringAfterLast('/')
+        val baseName = fileName.substringBeforeLast('.', fileName)
+        return baseName.endsWith("test") ||
+            baseName.endsWith("tests") ||
+            baseName.endsWith("spec") ||
+            baseName.endsWith("_test") ||
+            baseName.endsWith("_spec") ||
+            baseName.startsWith("test_") ||
+            baseName.startsWith("test") && baseName.length > 4 ||
+            fileName.contains(".test.") ||
+            fileName.contains(".spec.")
+    }
+
+    /** Returns the full text of the line at the change offset. */
+    private fun lineTextAtOffset(event: DocumentEvent): String {
+        val document = event.document
+        val lineNumber = document.getLineNumber(event.offset)
+        val start = document.getLineStartOffset(lineNumber)
+        val end = document.getLineEndOffset(lineNumber)
+        return document.getText(com.intellij.openapi.util.TextRange(start, end))
+    }
+
+    /** True if the line is a comment / documentation line in any common language. */
+    private fun isDocLine(lineText: String): Boolean {
+        val trimmed = lineText.trim()
+        if (trimmed.isEmpty()) return false
+        return DOC_PREFIXES.any { trimmed.startsWith(it) }
     }
 
     /** Escapes a string for safe inclusion in a JSON string value. */
