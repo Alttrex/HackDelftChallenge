@@ -80,12 +80,21 @@ class DevPetPanel : JPanel(BorderLayout()) {
         foreground = JBColor(0xFF9800.toInt(), 0xFFB74D.toInt())
     }
 
+    // Instant UI update on any state change (e.g. typing a line). Self-removes when
+    // the panel is no longer displayed so disposed tool windows don't leak listeners.
+    private val changeListener: () -> Unit = {
+        SwingUtilities.invokeLater {
+            if (isDisplayable) refresh() else PetState.getInstance().removeChangeListener(changeListener)
+        }
+    }
+
     init {
         border = JBUI.Borders.empty(10)
         // Bubble text is pulled live by the renderer every repaint (no polling lag).
         petRenderer.speechSupplier = { PetState.getInstance().currentSpeech() }
         buildUI()
         refresh()
+        PetState.getInstance().addChangeListener(changeListener)
         startRefreshTimer()
     }
 

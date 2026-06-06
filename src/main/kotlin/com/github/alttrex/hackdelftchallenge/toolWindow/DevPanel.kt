@@ -4,6 +4,7 @@ import com.github.alttrex.hackdelftchallenge.listeners.CodeTracker
 import com.github.alttrex.hackdelftchallenge.state.EvolutionStage
 import com.github.alttrex.hackdelftchallenge.state.PetMood
 import com.github.alttrex.hackdelftchallenge.state.PetState
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
@@ -206,10 +207,20 @@ class DevPanel : JPanel(BorderLayout()) {
                 )
                 val tracker = CodeTracker.instance
                 if (tracker != null) {
-                    aiLabel.text = "AI: %.1f%%".format(100.0 - tracker.getAiScore())
-                    testLabel.text = "Tests: %.1f%%".format(tracker.getTestScore())
-                    cleanLabel.text = "Clean: %.1f%%".format(tracker.getCleanlinessScore())
-                    healthLabel.text = "Health: %.1f%%".format(tracker.getOverallHealthScore())
+                    // Scores iterate the project + parse PSI, which is a slow operation
+                    // and must not run on the EDT. Compute off-thread, then update labels.
+                    ApplicationManager.getApplication().executeOnPooledThread {
+                        val ai = 100.0 - tracker.getAiScore()
+                        val tests = tracker.getTestScore()
+                        val clean = tracker.getCleanlinessScore()
+                        val health = tracker.getOverallHealthScore()
+                        SwingUtilities.invokeLater {
+                            aiLabel.text = "AI: %.1f%%".format(ai)
+                            testLabel.text = "Tests: %.1f%%".format(tests)
+                            cleanLabel.text = "Clean: %.1f%%".format(clean)
+                            healthLabel.text = "Health: %.1f%%".format(health)
+                        }
+                    }
                 }
             }
         }
