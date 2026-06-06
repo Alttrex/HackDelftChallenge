@@ -103,12 +103,16 @@ class CodeTracker : BulkAwareDocumentListener {
     private var totalCharsInProject: Long = 0
     private var aiCharsInProject: Long = 0
 
-    // Accumulated snippets and line counts between flushes
+    // Accumulated code snippets between flushes (used only for batched AI detection).
     private val pendingSnippets = mutableListOf<String>()
-    private var pendingCodeLines = 0
-    private var pendingDocLines = 0
-    private var pendingTestLines = 0
     private val lock = Any()
+
+    // Dedup guard: a single Enter can fire several newline-bearing events (the "\n"
+    // insert plus auto-indent/reformat). Remember the last completed line so we don't
+    // count it more than once in quick succession.
+    private var lastCountedLineKey: String? = null
+    private var lastCountedAt: Long = 0
+    private val countDedupWindowMs = 600L
 
     private var timer: Timer? = null
     private val httpClient: HttpClient = HttpClient.newHttpClient()
@@ -170,24 +174,63 @@ class CodeTracker : BulkAwareDocumentListener {
         val newFragment = event.newFragment.toString()
         if (newFragment.isEmpty()) return
 
-        val insertedLines = newFragment.count { it == '\n' }
-        val completedLine = if (insertedLines > 0) lineTextAtOffset(event) else ""
-        val rewardableLine = insertedLines > 0 && completedLine.isNotBlank()
-        val isTestLine = rewardableLine && isTestFile(event)
-        val isDocLine = rewardableLine && !isTestLine && isDocLine(completedLine)
-
+        // Snippets are batched for AI detection (done on the flush timer).
         synchronized(lock) {
             totalCharsInProject += newFragment.length
             pendingSnippets.add(newFragment)
+        }
 
-            if (rewardableLine) {
-                when {
-                    isTestLine -> pendingTestLines += insertedLines
-                    isDocLine -> pendingDocLines += insertedLines
-                    else -> pendingCodeLines += insertedLines
-                }
+        val isNewLine = newFragment.trimEnd{it == ' ' || it == '\t'}.endsWith("\n")
+        if (!isNewLine) return
+
+        val document = event.document
+        val firstLine = document.getLineNumber(event.offset)
+        val lastLine = document.getLineNumber(event.offset + newFragment.length)
+        if (lastLine <= firstLine) return
+
+        // Lines [firstLine, lastLine) were each terminated by an inserted newline and are
+        // therefore "completed". The trailing partial line (lastLine) is still being edited.
+        var completedLines = 0
+        var firstCompletedText: String? = null
+        for (lineNumber in firstLine until lastLine) {
+            val start = document.getLineStartOffset(lineNumber)
+            val end = document.getLineEndOffset(lineNumber)
+            val text = document.getText(com.intellij.openapi.util.TextRange(start, end))
+            if (text.isNotBlank()) {
+                completedLines++
+                if (firstCompletedText == null) firstCompletedText = text
             }
         }
+        if (completedLines == 0 || firstCompletedText == null) return
+
+        // Guard against the same completion being rewarded twice when a single Enter fires
+        // multiple newline-bearing events (e.g. reformat-on-enter).
+        val lineKey = "${System.identityHashCode(document)}#$firstLine#$firstCompletedText"
+        val now = System.currentTimeMillis()
+        if (lineKey == lastCountedLineKey && now - lastCountedAt < countDedupWindowMs) return
+        lastCountedLineKey = lineKey
+        lastCountedAt = now
+
+        // Award XP/lines immediately so the UI updates the moment a line is completed,
+        // rather than waiting for the periodic flush.
+        val state = PetState.getInstance()
+        state.checkDayReset()
+        when {
+            isTestFile(event) -> {
+                repeat(completedLines) { state.addTestLine() }
+                state.say(TEST_COMPLIMENTS.random())
+                log("🧪 $completedLines test line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+            }
+            isDocLine(firstCompletedText) -> {
+                repeat(completedLines) { state.addJavadocLine() }
+                log("📝 $completedLines documentation line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+            }
+            else -> {
+                repeat(completedLines) { state.addCodeLine() }
+                log("✍️ $completedLines line(s) of code written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
+            }
+        }
+        Achievements.check(project)
     }
 
     /** Returns the current AI code percentage (0–100) in the project. */
@@ -294,74 +337,39 @@ class CodeTracker : BulkAwareDocumentListener {
         }
     }
 
-    /** Flushes accumulated changes to [PetState]. Called by the timer. */
+    /**
+     * Periodic batched work (called by the timer): runs AI detection on the accumulated
+     * snippets and updates the pet's health/sickness. Line/XP awarding is handled
+     * immediately in [documentChangedNonBulk], not here.
+     */
     private fun flush() {
         val snippets: List<String>
-        val codeLines: Int
-        val docLines: Int
-        val testLines: Int
         synchronized(lock) {
             snippets = pendingSnippets.toList()
-            codeLines = pendingCodeLines
-            docLines = pendingDocLines
-            testLines = pendingTestLines
             pendingSnippets.clear()
-            pendingCodeLines = 0
-            pendingDocLines = 0
-            pendingTestLines = 0
         }
 
-        if (snippets.isEmpty() && codeLines == 0 && docLines == 0 && testLines == 0) return
+        if (snippets.isEmpty()) return
 
         // Run AI detection on accumulated snippets
-        if (snippets.isNotEmpty()) {
-            val combinedCode = snippets.joinToString("\n")
-            val aiPercent = checkAiPercentage(combinedCode)
-            val aiCharsInBatch = (combinedCode.length * aiPercent / 100).toLong()
+        val combinedCode = snippets.joinToString("\n")
+        val aiPercent = checkAiPercentage(combinedCode)
+        val aiCharsInBatch = (combinedCode.length * aiPercent / 100).toLong()
 
-            synchronized(lock) {
-                aiCharsInProject += aiCharsInBatch
-            }
-
-            if (aiCharsInBatch > 0) {
-                log("🤖 AI detection: ${String.format("%.1f", aiPercent)}% of batch (${aiCharsInBatch}/${combinedCode.length} chars) flagged as AI-generated.")
-            }
+        synchronized(lock) {
+            aiCharsInProject += aiCharsInBatch
         }
 
-        val state = PetState.getInstance()
-        state.checkDayReset()
+        if (aiCharsInBatch > 0) {
+            log("🤖 AI detection: ${String.format("%.1f", aiPercent)}% of batch (${aiCharsInBatch}/${combinedCode.length} chars) flagged as AI-generated.")
+        }
 
         // Check if overall health score is below threshold
         val healthScore = getOverallHealthScore()
         if (healthScore < sickThresholdPercent) {
-            state.makeSick()
+            PetState.getInstance().makeSick()
             log("🤢 Health score ${String.format("%.1f", healthScore)}% is below threshold ($sickThresholdPercent%) — pet is sick! " +
                 "[AI: ${String.format("%.1f", getAiScore())}, Clean: ${String.format("%.1f", getCleanlinessScore())}, Tests: ${String.format("%.1f", getTestScore())}]")
-        }
-
-        var countedLines = 0
-
-        if (codeLines > 0) {
-            repeat(codeLines) { state.addCodeLine() }
-            countedLines += codeLines
-            log("✍️ $codeLines line(s) of code written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
-        }
-
-        if (docLines > 0) {
-            repeat(docLines) { state.addJavadocLine() }
-            countedLines += docLines
-            log("📝 $docLines documentation line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
-        }
-
-        if (testLines > 0) {
-            repeat(testLines) { state.addTestLine() }
-            countedLines += testLines
-            log("🧪 $testLines test line(s) written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
-            state.say(TEST_COMPLIMENTS.random())
-        }
-
-        if (countedLines > 0) {
-            Achievements.check(null)
         }
     }
 
@@ -389,15 +397,6 @@ class CodeTracker : BulkAwareDocumentListener {
             baseName.startsWith("test") && baseName.length > 4 ||
             fileName.contains(".test.") ||
             fileName.contains(".spec.")
-    }
-
-    /** Returns the full text of the line at the change offset. */
-    private fun lineTextAtOffset(event: DocumentEvent): String {
-        val document = event.document
-        val lineNumber = document.getLineNumber(event.offset)
-        val start = document.getLineStartOffset(lineNumber)
-        val end = document.getLineEndOffset(lineNumber)
-        return document.getText(com.intellij.openapi.util.TextRange(start, end))
     }
 
     /** True if the line is a comment / documentation line in any common language. */

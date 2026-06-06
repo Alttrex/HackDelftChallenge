@@ -106,6 +106,23 @@ class PetState : PersistentStateComponent<PetState> {
     // ── Achievements ────────────────────────────────────────────────────────
     var unlockedAchievements: MutableList<String> = mutableListOf()
 
+    // ── Change notification (lets the UI update instantly instead of polling) ─
+    // Not a bean property (private, no accessor), so it is never serialized.
+    private val changeListeners = mutableListOf<() -> Unit>()
+
+    fun addChangeListener(listener: () -> Unit) {
+        changeListeners.add(listener)
+    }
+
+    fun removeChangeListener(listener: () -> Unit) {
+        changeListeners.remove(listener)
+    }
+
+    private fun notifyChanged() {
+        if (changeListeners.isEmpty()) return
+        changeListeners.toList().forEach { runCatching { it() } }
+    }
+
     fun getCurrentStage(): EvolutionStage = try {
         EvolutionStage.valueOf(stage)
     } catch (_: Exception) {
@@ -166,16 +183,21 @@ class PetState : PersistentStateComponent<PetState> {
             addXp(25)
             addCoins(10) // reward a successful build
         }
+        notifyChanged()
     }
 
     fun addCoins(amount: Int) {
-        if (amount > 0) devCoins += amount
+        if (amount > 0) {
+            devCoins += amount
+            notifyChanged()
+        }
     }
 
     /** Make the pet "say" something for [durationMs]; shown as a speech bubble in the UI. */
     fun say(message: String, durationMs: Long = 4500L) {
         speechMessage = message
         speechUntil = System.currentTimeMillis() + durationMs
+        notifyChanged()
     }
 
     /** The currently active speech text, or empty if nothing is being said right now. */
@@ -244,19 +266,23 @@ class PetState : PersistentStateComponent<PetState> {
             dailyLinesWritten >= dailyQuota / 2 -> PetMood.NEUTRAL.name
             else -> PetMood.HUNGRY.name
         }
+        notifyChanged()
     }
 
     fun makeSick() {
         mood = PetMood.SICK.name
         healingLines = 0
+        notifyChanged()
     }
 
     fun setEating() {
         mood = PetMood.EATING.name
+        notifyChanged()
     }
 
     fun setBuilding() {
         mood = PetMood.BUILDING.name
+        notifyChanged()
     }
 
     fun resetMoodFromAnimation() {
@@ -265,6 +291,7 @@ class PetState : PersistentStateComponent<PetState> {
             dailyLinesWritten >= dailyQuota / 2 -> PetMood.NEUTRAL.name
             else -> PetMood.HUNGRY.name
         }
+        notifyChanged()
     }
 
     override fun getState(): PetState = this
