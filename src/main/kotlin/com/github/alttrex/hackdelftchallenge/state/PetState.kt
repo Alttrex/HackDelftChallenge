@@ -12,39 +12,28 @@ enum class EvolutionStage(val displayName: String, val ascii: String) {
     EGG("Egg", """
         ______
        /      \
-      |  o  o  |
-      |   __   |
+      |        |
+      |  ~~~~  |
        \______/
     """.trimIndent()),
-    BABY("Baby", """
-         /\_/\
-        ( o.o )
-         > ^ <
-        /|   |\
-       (_|   |_)
+    BABY("Duckling", """
+        _
+       (o>
+       //)
+      v_/_
     """.trimIndent()),
-    TEEN("Teen", """
-          /\_/\
-         ( ^.^ )
-        />    <\
-       / |    | \
-      (_/|    |\_)
-         |____|
-         /    \
-        (_/  \_)
+    TEEN("Duck", """
+         __
+       <(o )___
+        ( ._> /
+         `---'
     """.trimIndent()),
-    ADULT("Adult", """
-           /\_/\
-          ( *_* )
-         />    <\
-        / |    | \
-       /  |    |  \
-      (_/ |    | \_)
-          |____|
-         /|    |\
-        (_|    |_)
-          /    \
-         (_/  \_)
+    ADULT("Rubber Ducky", """
+          __
+        <(o )___
+         ( ._> /  squeak!
+          `---'
+        ~~~~~~~~~~
     """.trimIndent());
 
     companion object {

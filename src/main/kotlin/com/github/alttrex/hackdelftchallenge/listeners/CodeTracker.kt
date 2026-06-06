@@ -32,7 +32,7 @@ class CodeTracker : BulkAwareDocumentListener {
         // Anti-AI / Anti-paste heuristic
         if (insertedLength > PASTE_THRESHOLD) {
             val pastedLines = newFragment.count { it == '\n' }
-            thisLogger().info("DevPet: Large paste detected ($insertedLength chars, $pastedLines lines) — no XP awarded")
+            log("🤖 AI code detected — large paste of $insertedLength chars / $pastedLines line(s). No XP awarded.")
             if (pastedLines >= SICK_LINE_THRESHOLD) {
                 state.makeSick()
             }
@@ -44,8 +44,14 @@ class CodeTracker : BulkAwareDocumentListener {
         if (newLines > 0) {
             repeat(newLines) {
                 state.addLine()
+                log("✍️ Line of code written. Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
             }
-            thisLogger().info("DevPet: Human typed $newLines new line(s). Daily: ${state.dailyLinesWritten}/${state.dailyQuota}")
         }
+    }
+
+    /** Logs to both the run console (stdout) and the IDE log. */
+    private fun log(message: String) {
+        println("[DevPet] $message")
+        thisLogger().info("DevPet: $message")
     }
 }

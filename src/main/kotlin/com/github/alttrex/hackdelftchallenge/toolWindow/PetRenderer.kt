@@ -7,8 +7,9 @@ import javax.swing.JComponent
 import javax.swing.Timer
 
 /**
- * Custom component that draws pixel-art style pets using Graphics2D.
- * Supports different evolution stages, moods, and idle animation.
+ * Custom component that draws the duck pet using Graphics2D.
+ * Evolution stages: egg → duckling → duck → rubber ducky.
+ * Supports different moods and idle animation.
  */
 class PetRenderer : JComponent() {
 
@@ -46,9 +47,9 @@ class PetRenderer : JComponent() {
 
         when (stage) {
             EvolutionStage.EGG -> drawEgg(g2, cx, cy + bob)
-            EvolutionStage.BABY -> drawBaby(g2, cx, cy + bob)
-            EvolutionStage.TEEN -> drawTeen(g2, cx, cy + bob)
-            EvolutionStage.ADULT -> drawAdult(g2, cx, cy + bob)
+            EvolutionStage.BABY -> drawDuckling(g2, cx, cy + bob)
+            EvolutionStage.TEEN -> drawDuck(g2, cx, cy + bob)
+            EvolutionStage.ADULT -> drawRubberDucky(g2, cx, cy + bob)
         }
 
         drawHat(g2, cx, cy + bob)
@@ -77,113 +78,131 @@ class PetRenderer : JComponent() {
         val pts = intArrayOf(cx - 18, cx - 8, cx, cx + 10, cx + 18)
         val ptsY = intArrayOf(crackY, crackY - 7, crackY + 3, crackY - 5, crackY + 2)
         g.drawPolyline(pts, ptsY, 5)
+        // Tiny beak peeking through the crack
+        drawBeak(g, cx, cy - 8, 10, 6)
         // Eyes (peeking through crack)
-        drawEyes(g, cx, cy - 14, 10, mood)
+        drawEyes(g, cx, cy - 16, 10, mood)
     }
 
-    // ── Baby ─────────────────────────────────────────────
-    private fun drawBaby(g: Graphics2D, cx: Int, cy: Int) {
+    // ── Duckling ─────────────────────────────────────────
+    private fun drawDuckling(g: Graphics2D, cx: Int, cy: Int) {
         val bodyColor = getMoodBodyColor()
         // Shadow
         g.color = Color(0, 0, 0, 40)
-        g.fillOval(cx - 22, cy + 28, 44, 10)
-        // Body (round blob)
+        g.fillOval(cx - 22, cy + 30, 44, 10)
+        // Tiny tail tuft
         g.color = bodyColor
-        g.fillOval(cx - 28, cy - 24, 56, 56)
-        g.color = bodyColor.darker()
-        g.stroke = BasicStroke(2f)
-        g.drawOval(cx - 28, cy - 24, 56, 56)
-        // Belly
-        g.color = lighten(bodyColor, 0.3f)
-        g.fillOval(cx - 14, cy - 4, 28, 24)
-        // Eyes
-        drawEyes(g, cx, cy - 12, 14, mood)
-        // Mouth
-        drawMouth(g, cx, cy + 4, 8)
-        // Tiny feet
-        g.color = bodyColor.darker()
-        g.fillOval(cx - 18, cy + 26, 12, 8)
-        g.fillOval(cx + 6, cy + 26, 12, 8)
-    }
-
-    // ── Teen ─────────────────────────────────────────────
-    private fun drawTeen(g: Graphics2D, cx: Int, cy: Int) {
-        val bodyColor = getMoodBodyColor()
-        // Shadow
-        g.color = Color(0, 0, 0, 40)
-        g.fillOval(cx - 26, cy + 38, 52, 12)
-        // Ears
-        g.color = bodyColor
-        drawEar(g, cx - 24, cy - 44, -1)
-        drawEar(g, cx + 14, cy - 44, 1)
+        val tx = intArrayOf(cx + 22, cx + 34, cx + 22)
+        val ty = intArrayOf(cy + 8, cy + 2, cy + 22)
+        g.fillPolygon(tx, ty, 3)
+        // Body (round fluffy chick)
+        g.fillOval(cx - 26, cy - 4, 52, 44)
         // Head
-        g.color = bodyColor
-        g.fillRoundRect(cx - 30, cy - 36, 60, 50, 30, 30)
-        // Body
-        g.fillRoundRect(cx - 24, cy + 8, 48, 30, 20, 20)
+        g.fillOval(cx - 20, cy - 38, 40, 40)
+        // Head tuft feather
+        g.fillOval(cx - 3, cy - 46, 6, 9)
         // Outlines
         g.color = bodyColor.darker()
         g.stroke = BasicStroke(2f)
-        g.drawRoundRect(cx - 30, cy - 36, 60, 50, 30, 30)
-        g.drawRoundRect(cx - 24, cy + 8, 48, 30, 20, 20)
-        // Belly
-        g.color = lighten(bodyColor, 0.3f)
-        g.fillOval(cx - 12, cy + 12, 24, 20)
-        // Eyes
-        drawEyes(g, cx, cy - 18, 16, mood)
-        // Mouth
-        drawMouth(g, cx, cy - 2, 10)
-        // Feet
+        g.drawOval(cx - 26, cy - 4, 52, 44)
+        g.drawOval(cx - 20, cy - 38, 40, 40)
+        // Wing
+        g.color = lighten(bodyColor, 0.18f)
+        g.fillOval(cx + 4, cy + 2, 20, 22)
         g.color = bodyColor.darker()
-        g.fillRoundRect(cx - 20, cy + 34, 14, 10, 6, 6)
-        g.fillRoundRect(cx + 6, cy + 34, 14, 10, 6, 6)
-        // Tail
-        g.stroke = BasicStroke(3f)
-        g.drawArc(cx + 20, cy + 14, 20, 20, 0, -160)
+        g.drawOval(cx + 4, cy + 2, 20, 22)
+        // Beak
+        drawBeak(g, cx, cy - 14, 13, 8)
+        // Eyes
+        drawEyes(g, cx, cy - 24, 12, mood)
+        // Webbed feet
+        drawWebFoot(g, cx - 9, cy + 38)
+        drawWebFoot(g, cx + 9, cy + 38)
     }
 
-    // ── Adult ────────────────────────────────────────────
-    private fun drawAdult(g: Graphics2D, cx: Int, cy: Int) {
+    // ── Duck ─────────────────────────────────────────────
+    private fun drawDuck(g: Graphics2D, cx: Int, cy: Int) {
         val bodyColor = getMoodBodyColor()
         // Shadow
         g.color = Color(0, 0, 0, 40)
-        g.fillOval(cx - 30, cy + 48, 60, 14)
-        // Ears
+        g.fillOval(cx - 30, cy + 40, 60, 12)
+        // Pointed tail
         g.color = bodyColor
-        drawEar(g, cx - 30, cy - 56, -1)
-        drawEar(g, cx + 18, cy - 56, 1)
+        val tx = intArrayOf(cx + 24, cx + 44, cx + 24)
+        val ty = intArrayOf(cy + 2, cy - 8, cy + 16)
+        g.fillPolygon(tx, ty, 3)
+        // Body (egg-shaped)
+        g.fillOval(cx - 30, cy - 2, 60, 48)
         // Head
-        g.color = bodyColor
-        g.fillRoundRect(cx - 36, cy - 46, 72, 58, 36, 36)
-        // Body
-        g.fillRoundRect(cx - 30, cy + 6, 60, 42, 24, 24)
+        g.fillOval(cx - 22, cy - 46, 44, 44)
         // Outlines
         g.color = bodyColor.darker()
+        g.stroke = BasicStroke(2f)
+        g.drawOval(cx - 30, cy - 2, 60, 48)
+        g.drawOval(cx - 22, cy - 46, 44, 44)
+        // Belly
+        g.color = lighten(bodyColor, 0.3f)
+        g.fillOval(cx - 4, cy + 8, 28, 30)
+        // Wing
+        g.color = lighten(bodyColor, 0.18f)
+        g.fillOval(cx - 26, cy + 2, 28, 30)
+        g.color = bodyColor.darker()
+        g.drawOval(cx - 26, cy + 2, 28, 30)
+        // Beak
+        drawBeak(g, cx, cy - 20, 19, 11)
+        // Eyes
+        drawEyes(g, cx, cy - 30, 16, mood)
+        // Webbed feet
+        drawWebFoot(g, cx - 10, cy + 44)
+        drawWebFoot(g, cx + 10, cy + 44)
+    }
+
+    // ── Rubber Ducky (final form) ────────────────────────
+    private fun drawRubberDucky(g: Graphics2D, cx: Int, cy: Int) {
+        val body = Color(255, 211, 61)       // classic rubber-duck yellow
+        val bodyDark = Color(228, 165, 28)
+        // Water ripple it floats on
+        g.color = Color(120, 190, 235, 120)
         g.stroke = BasicStroke(2.5f)
-        g.drawRoundRect(cx - 36, cy - 46, 72, 58, 36, 36)
-        g.drawRoundRect(cx - 30, cy + 6, 60, 42, 24, 24)
-        // Belly
-        g.color = lighten(bodyColor, 0.3f)
-        g.fillOval(cx - 16, cy + 12, 32, 28)
+        g.drawArc(cx - 46, cy + 40, 36, 14, 0, -180)
+        g.drawArc(cx + 8, cy + 40, 36, 14, 0, -180)
+        // Shadow / reflection
+        g.color = Color(0, 0, 0, 35)
+        g.fillOval(cx - 34, cy + 44, 68, 12)
+        // Body
+        g.color = body
+        g.fillOval(cx - 32, cy + 2, 64, 46)
+        // Tail flip
+        val tx = intArrayOf(cx + 26, cx + 46, cx + 26)
+        val ty = intArrayOf(cy + 4, cy - 10, cy + 22)
+        g.fillPolygon(tx, ty, 3)
+        // Big head
+        g.fillOval(cx - 30, cy - 48, 60, 58)
+        // Outlines
+        g.color = bodyDark
+        g.stroke = BasicStroke(2.5f)
+        g.drawOval(cx - 32, cy + 2, 64, 46)
+        g.drawOval(cx - 30, cy - 48, 60, 58)
+        // Big flat beak
+        g.color = Color(246, 150, 32)
+        g.fillRoundRect(cx - 18, cy - 24, 36, 15, 9, 9)
+        g.color = Color(205, 115, 18)
+        g.stroke = BasicStroke(1.5f)
+        g.drawLine(cx - 12, cy - 16, cx + 12, cy - 16)
         // Eyes
-        drawEyes(g, cx, cy - 24, 18, mood)
-        // Mouth
-        drawMouth(g, cx, cy - 6, 12)
-        // Arms
-        g.color = bodyColor
-        g.stroke = BasicStroke(4f)
-        g.drawArc(cx - 38, cy + 4, 16, 24, 40, 180)
-        g.drawArc(cx + 22, cy + 4, 16, 24, -40, -180)
-        // Feet
-        g.color = bodyColor.darker()
-        g.fillRoundRect(cx - 24, cy + 42, 16, 12, 8, 8)
-        g.fillRoundRect(cx + 8, cy + 42, 16, 12, 8, 8)
-        // Tail
-        g.stroke = BasicStroke(4f)
-        g.drawArc(cx + 26, cy + 18, 24, 24, 0, -180)
-        // Star sparkle on forehead
-        g.color = Color(255, 215, 0)
-        drawStar(g, cx, cy - 42, 6)
+        drawEyes(g, cx, cy - 34, 16, mood)
+        // Glossy rubber highlight on head
+        g.color = Color(255, 255, 255, 150)
+        g.fillOval(cx + 6, cy - 42, 12, 18)
+        // Wing
+        g.color = Color(245, 193, 38)
+        g.fillOval(cx - 28, cy + 8, 24, 28)
+        g.color = bodyDark
+        g.stroke = BasicStroke(1.5f)
+        g.drawOval(cx - 28, cy + 8, 24, 28)
+        // Sparkle
+        g.color = Color(255, 255, 255, 210)
+        drawStar(g, cx - 20, cy - 38, 4)
     }
 
     // ── Helpers ──────────────────────────────────────────
@@ -236,31 +255,21 @@ class PetRenderer : JComponent() {
         }
     }
 
-    private fun drawMouth(g: Graphics2D, cx: Int, cy: Int, width: Int) {
+    /** Front-facing rounded duck bill. Lower bill droops a little when hungry/sick. */
+    private fun drawBeak(g: Graphics2D, cx: Int, cy: Int, w: Int, h: Int) {
+        g.color = Color(245, 165, 45)
+        g.fillRoundRect(cx - w / 2, cy - h / 2, w, h, h, h)
+        g.color = Color(210, 130, 30)
         g.stroke = BasicStroke(1.5f)
-        when (mood) {
-            PetMood.HAPPY, PetMood.EATING -> {
-                g.color = Color.BLACK
-                g.drawArc(cx - width / 2, cy - 2, width, width / 2, 180, 180)
-            }
-            PetMood.SICK -> {
-                g.color = Color(120, 180, 60)
-                g.drawArc(cx - width / 2, cy + 2, width, width / 2, 0, 180)
-            }
-            PetMood.HUNGRY -> {
-                g.color = Color.BLACK
-                g.drawOval(cx - 3, cy, 6, 8)
-            }
-            else -> {
-                g.color = Color.BLACK
-                g.drawLine(cx - width / 3, cy + 2, cx + width / 3, cy + 2)
-            }
-        }
+        val lipDrop = if (mood == PetMood.HUNGRY || mood == PetMood.SICK) 2 else 0
+        g.drawLine(cx - w / 2 + 2, cy + lipDrop, cx + w / 2 - 2, cy + lipDrop)
     }
 
-    private fun drawEar(g: Graphics2D, x: Int, y: Int, dir: Int) {
-        val xp = intArrayOf(x, x + 6 * dir, x + 12)
-        val yp = intArrayOf(y + 20, y, y + 20)
+    /** Little orange webbed foot. */
+    private fun drawWebFoot(g: Graphics2D, x: Int, y: Int) {
+        g.color = Color(240, 150, 40)
+        val xp = intArrayOf(x - 7, x + 7, x)
+        val yp = intArrayOf(y + 6, y + 6, y - 3)
         g.fillPolygon(xp, yp, 3)
     }
 
@@ -280,9 +289,9 @@ class PetRenderer : JComponent() {
     private fun drawHat(g: Graphics2D, cx: Int, cy: Int) {
         val headTop = when (stage) {
             EvolutionStage.EGG -> cy - 38
-            EvolutionStage.BABY -> cy - 24
-            EvolutionStage.TEEN -> cy - 36
-            EvolutionStage.ADULT -> cy - 46
+            EvolutionStage.BABY -> cy - 38
+            EvolutionStage.TEEN -> cy - 46
+            EvolutionStage.ADULT -> cy - 48
         }
         when (equippedHat) {
             "top_hat" -> {
@@ -401,13 +410,14 @@ class PetRenderer : JComponent() {
         g.fillPolygon(tx, ty, 3)
     }
 
+    // Duck stays in a yellow family; mood shifts the tone for at-a-glance feedback.
     private fun getMoodBodyColor(): Color = when (mood) {
-        PetMood.HAPPY -> Color(120, 210, 150)   // green
-        PetMood.NEUTRAL -> Color(150, 190, 230)  // blue
-        PetMood.HUNGRY -> Color(230, 200, 140)   // yellowish
-        PetMood.SICK -> Color(180, 210, 140)      // pale green
-        PetMood.EATING -> Color(250, 180, 120)    // orange
-        PetMood.BUILDING -> Color(180, 150, 220)  // purple
+        PetMood.HAPPY -> Color(255, 224, 70)     // bright happy yellow
+        PetMood.NEUTRAL -> Color(255, 209, 64)   // golden yellow
+        PetMood.HUNGRY -> Color(240, 226, 150)   // pale, washed-out yellow
+        PetMood.SICK -> Color(214, 222, 120)     // sickly greenish yellow
+        PetMood.EATING -> Color(255, 184, 80)    // warm orange-yellow
+        PetMood.BUILDING -> Color(255, 200, 120) // light amber
     }
 
     private fun lighten(c: Color, factor: Float): Color {
