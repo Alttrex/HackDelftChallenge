@@ -12,11 +12,19 @@ import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.util.PsiTreeUtil
+import com.puppycrawl.tools.checkstyle.Checker
+import com.puppycrawl.tools.checkstyle.ConfigurationLoader
+import com.puppycrawl.tools.checkstyle.PropertiesExpander
+import com.puppycrawl.tools.checkstyle.api.AuditEvent
+import com.puppycrawl.tools.checkstyle.api.AuditListener
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.xml.sax.InputSource
+import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.util.Properties
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
 
@@ -97,6 +105,21 @@ class CodeTracker : BulkAwareDocumentListener {
 
     /** Weight of the test-coverage score in the overall health calculation. */
     var testScoreWeight: Double = 0.3
+
+    // ── Cleanliness (Checkstyle) tuning ─────────────────────────────────
+
+    /** Number of Checkstyle violations that are forgiven before the score drops. */
+    var cleanlinessFreeErrors: Int = 5
+
+    /** Points removed from the cleanliness score for each violation beyond the free allowance. */
+    var cleanlinessPenaltyPerError: Double = 2.0
+
+    /** Checkstyle is comparatively expensive, so its result is cached for this long. */
+    private val cleanlinessCacheMs: Long = 15_000L
+    @Volatile
+    private var cachedCleanliness: Double = 100.0
+    @Volatile
+    private var cachedCleanlinessAt: Long = 0
 
     // ── AI detection running totals ─────────────────────────────────────
 
@@ -197,7 +220,7 @@ class CodeTracker : BulkAwareDocumentListener {
             val end = document.getLineEndOffset(lineNumber)
             val text = document.getText(com.intellij.openapi.util.TextRange(start, end))
             if (text.isNotBlank()) {
-                completedLines++
+                completedLines++    
                 if (firstCompletedText == null) firstCompletedText = text
             }
         }
@@ -248,14 +271,87 @@ class CodeTracker : BulkAwareDocumentListener {
     fun getAiScore(): Double = 100.0 - getAiPercent()
 
     /**
-     * Returns the code cleanliness score (0–100).
+     * Returns the code cleanliness score (0–100), derived from Checkstyle violations
+     * in the project's Java files. The first [cleanlinessFreeErrors] violations are
+     * forgiven; beyond that, each violation removes [cleanlinessPenaltyPerError] points.
+     * 100 = clean (or no Java files), 0 = very messy.
      *
-     * **Stub** — replace this with your own logic (e.g. linting, formatting checks).
-     * 100 = perfectly clean, 0 = very messy.
+     * The Checkstyle run is comparatively expensive, so results are cached for
+     * [cleanlinessCacheMs]. Must be called off the EDT (it reads files from disk).
      */
     fun getCleanlinessScore(): Double {
-        // TODO: Implement cleanliness calculation
-        return 100.0
+        val now = System.currentTimeMillis()
+        if (now - cachedCleanlinessAt < cleanlinessCacheMs) return cachedCleanliness
+
+        val score = computeCheckstyleCleanliness()
+        cachedCleanliness = score
+        cachedCleanlinessAt = now
+        return score
+    }
+
+    /** Runs Checkstyle over the project's Java files and converts violations into a 0–100 score. */
+    private fun computeCheckstyleCleanliness(): Double {
+        val proj = project ?: return 100.0
+
+        val javaFiles = ReadAction.compute<List<File>, Exception> {
+            val result = mutableListOf<File>()
+            ProjectFileIndex.getInstance(proj).iterateContent { vf ->
+                if (!vf.isDirectory && vf.isInLocalFileSystem && vf.extension.equals("java", ignoreCase = true)) {
+                    val file = File(vf.path)
+                    if (file.isFile) result.add(file)
+                }
+                true
+            }
+            result
+        }
+        if (javaFiles.isEmpty()) return 100.0
+
+        return try {
+            val violations = runCheckstyle(javaFiles)
+            val excess = (violations - cleanlinessFreeErrors).coerceAtLeast(0)
+            val score = (100.0 - excess * cleanlinessPenaltyPerError).coerceIn(0.0, 100.0)
+            log("🧹 Checkstyle: $violations violation(s) across ${javaFiles.size} Java file(s) " +
+                "(first $cleanlinessFreeErrors forgiven) → cleanliness ${String.format("%.1f", score)}%")
+            score
+        } catch (t: Throwable) {
+            thisLogger().warn("DevPet: Checkstyle run failed; defaulting cleanliness to 100", t)
+            100.0
+        }
+    }
+
+    /** Executes Checkstyle with the bundled config and returns the total violation count. */
+    private fun runCheckstyle(files: List<File>): Int {
+        val configStream = javaClass.getResourceAsStream("/checkstyle/devpet_checks.xml")
+            ?: error("Bundled Checkstyle config not found on classpath")
+
+        val config = configStream.use { stream ->
+            ConfigurationLoader.loadConfiguration(
+                InputSource(stream),
+                PropertiesExpander(Properties()),
+                ConfigurationLoader.IgnoredModulesOptions.EXECUTE,
+            )
+        }
+
+        var violations = 0
+        val listener = object : AuditListener {
+            override fun auditStarted(event: AuditEvent?) {}
+            override fun auditFinished(event: AuditEvent?) {}
+            override fun fileStarted(event: AuditEvent?) {}
+            override fun fileFinished(event: AuditEvent?) {}
+            override fun addError(event: AuditEvent?) { violations++ }
+            override fun addException(event: AuditEvent?, throwable: Throwable?) {}
+        }
+
+        val checker = Checker()
+        try {
+            checker.setModuleClassLoader(Checker::class.java.classLoader)
+            checker.configure(config)
+            checker.addListener(listener)
+            checker.process(files)
+        } finally {
+            checker.destroy()
+        }
+        return violations
     }
 
     /**
