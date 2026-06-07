@@ -2,22 +2,25 @@ package com.github.alttrex.hackdelftchallenge.toolWindow
 
 import com.github.alttrex.hackdelftchallenge.achievements.Achievement
 import com.github.alttrex.hackdelftchallenge.achievements.Badge
+import com.github.alttrex.hackdelftchallenge.listeners.CodeTracker
 import com.github.alttrex.hackdelftchallenge.state.PetMood
 import com.github.alttrex.hackdelftchallenge.state.PetState
+import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.JBColor
+import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBLabel
+import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.Cursor
 import java.awt.Dialog
 import java.awt.FlowLayout
-import java.awt.Font
 import java.awt.GridLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.util.Timer
-import javax.swing.BorderFactory
 import javax.swing.BoxLayout
+import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JDialog
 import javax.swing.JLabel
@@ -36,20 +39,23 @@ class DevPetPanel : JPanel(BorderLayout()) {
 
     private val nameLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(Font.BOLD, 16f)
+        font = JBFont.h2()
     }
 
     private val moodLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(14f)
+        font = JBFont.medium()
     }
 
     private val stageLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
+        font = JBFont.small()
+        foreground = JBColor.GRAY
     }
 
     private val levelLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
+        font = JBFont.medium().asBold()
     }
 
     private val xpBar = JProgressBar().apply {
@@ -61,22 +67,23 @@ class DevPetPanel : JPanel(BorderLayout()) {
 
     private val quotaLegend = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(10f)
+        font = JBFont.small()
     }
 
     private val coinsLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(Font.BOLD, 13f)
+        font = JBFont.medium().asBold()
     }
 
     private val statsLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(11f)
+        font = JBFont.small()
+        foreground = JBColor.GRAY
     }
 
     private val achievementsLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(11f)
+        font = JBFont.small()
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         toolTipText = "Click to view achievements and equip badges"
         addMouseListener(object : MouseAdapter() {
@@ -84,13 +91,17 @@ class DevPetPanel : JPanel(BorderLayout()) {
         })
     }
 
-    private val shopButton = JButton("🛒 Open Shop").apply {
-        addActionListener { onOpenShop() }
+    private val shopLink = ActionLink("Open Shop") { onOpenShop() }
+
+    private val forceAiCheckLink = ActionLink("Force AI Check") {
+        CodeTracker.instance?.forceAiCheck()
+    }.apply {
+        toolTipText = "Run AI detection on pending code snippets now"
     }
 
     private val animationLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(Font.ITALIC, 12f)
+        font = JBFont.medium().deriveFont(java.awt.Font.ITALIC)
         foreground = JBColor(0xFF9800.toInt(), 0xFFB74D.toInt())
     }
 
@@ -133,8 +144,8 @@ class DevPetPanel : JPanel(BorderLayout()) {
         }
 
         // Stats
-        val statsPanel = JPanel(GridLayout(0, 1, 4, 4)).apply {
-            border = BorderFactory.createTitledBorder("Stats")
+        val statsPanel = JPanel(GridLayout(0, 1, 4, 6)).apply {
+            border = IdeBorderFactory.createTitledBorder("Stats", false)
             add(levelLabel)
             add(xpBar)
             add(quotaBar)
@@ -144,20 +155,15 @@ class DevPetPanel : JPanel(BorderLayout()) {
             add(achievementsLabel)
         }
 
-        val forceAiCheckButton = JButton("🔍 Force AI Check").apply {
-            toolTipText = "Run AI detection on pending code snippets now"
-            addActionListener {
-                com.github.alttrex.hackdelftchallenge.listeners.CodeTracker.instance?.forceAiCheck()
-            }
+        val linkRow = JPanel(FlowLayout(FlowLayout.CENTER, 16, 4)).apply {
+            add(shopLink)
+            add(forceAiCheckLink)
         }
 
         val bottomPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             add(statsPanel)
-            add(JPanel().apply {
-                add(shopButton)
-                add(forceAiCheckButton)
-            })
+            add(linkRow)
         }
 
         add(topPanel, BorderLayout.NORTH)
@@ -246,16 +252,21 @@ class DevPetPanel : JPanel(BorderLayout()) {
             val done = achievement.id in unlocked
             val icon = if (done) "\u2705" else "\uD83D\uDD12"
             val titleColor = if (done) "#4CAF50" else "#9E9E9E"
+            val rewardColor = if (done) "#4CAF50" else "#9E9E9E"
             "<tr>" +
-                "<td valign='top' style='padding:4px 8px 4px 0;font-size:14px'>$icon</td>" +
-                "<td style='padding:4px 0'>" +
+                "<td valign='top' style='padding:5px 10px 5px 0;font-size:15px'>$icon</td>" +
+                "<td style='padding:5px 0'>" +
                 "<b style='color:$titleColor'>${achievement.title}</b><br>" +
                 "<span style='color:#9E9E9E'>${achievement.description}</span>" +
-                "</td></tr>"
+                "</td>" +
+                "<td valign='top' align='right' style='padding:5px 0 5px 12px;color:$rewardColor'>+${achievement.reward}&#129689;</td>" +
+                "</tr>"
         }
         val unlockedCount = Achievement.entries.count { it.id in unlocked }
+        val earned = Achievement.entries.filter { it.id in unlocked }.sumOf { it.reward }
         val achievementsHtml = "<html><body style='width:320px'>" +
-            "<p><b>Achievements: $unlockedCount / ${Achievement.entries.size}</b></p>" +
+            "<p><b>Achievements: $unlockedCount / ${Achievement.entries.size}</b> " +
+            "<span style='color:#9E9E9E'>&middot; ${earned}&#129689; earned</span></p>" +
             "<table>$rows</table></body></html>"
         dialog.add(JLabel(achievementsHtml), BorderLayout.NORTH)
 

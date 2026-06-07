@@ -343,13 +343,23 @@ class PetState : PersistentStateComponent<PetState> {
             ApplicationManager.getApplication().getService(PetState::class.java)
 
         val SHOP_ITEMS = listOf(
-            Cosmetic("top_hat", "Top Hat", 50, "hat"),
-            Cosmetic("crown", "Crown", 100, "hat"),
+            // Hats
             Cosmetic("party_hat", "Party Hat", 30, "hat"),
+            Cosmetic("beanie", "Beanie", 40, "hat"),
+            Cosmetic("top_hat", "Top Hat", 50, "hat"),
+            Cosmetic("cap", "Backwards Cap", 55, "hat"),
+            Cosmetic("propeller", "Propeller Cap", 60, "hat"),
             Cosmetic("wizard_hat", "Wizard Hat", 75, "hat"),
-            Cosmetic("bg_space", "Space Background", 80, "background"),
-            Cosmetic("bg_forest", "Forest Background", 60, "background"),
-            Cosmetic("bg_ocean", "Ocean Background", 70, "background"),
+            Cosmetic("graduation_cap", "Graduation Cap", 90, "hat"),
+            Cosmetic("crown", "Crown", 100, "hat"),
+            Cosmetic("halo", "Angel Halo", 120, "hat"),
+            // Backgrounds
+            Cosmetic("bg_forest", "Forest", 60, "background"),
+            Cosmetic("bg_sunset", "Sunset", 65, "background"),
+            Cosmetic("bg_ocean", "Ocean", 70, "background"),
+            Cosmetic("bg_space", "Space", 80, "background"),
+            Cosmetic("bg_city", "Night City", 85, "background"),
+            Cosmetic("bg_matrix", "The Matrix", 110, "background"),
         )
     }
 }

@@ -381,6 +381,9 @@ class PetRenderer : JComponent() {
             "bg_space" -> drawSpaceBackground(g, w, h)
             "bg_forest" -> drawForestBackground(g, w, h)
             "bg_ocean" -> drawOceanBackground(g, w, h)
+            "bg_sunset" -> drawSunsetBackground(g, w, h)
+            "bg_city" -> drawCityBackground(g, w, h)
+            "bg_matrix" -> drawMatrixBackground(g, w, h)
             else -> {} // none → transparent
         }
     }
@@ -464,6 +467,83 @@ class PetRenderer : JComponent() {
                 x += 40
             }
             row += 18
+        }
+    }
+
+    private fun drawSunsetBackground(g: Graphics2D, w: Int, h: Int) {
+        // Warm sky fading to dusk
+        g.paint = GradientPaint(0f, 0f, Color(255, 168, 92), 0f, h.toFloat(), Color(108, 58, 120))
+        g.fillRect(0, 0, w, h)
+        // Low sun
+        val sunY = h / 2
+        g.color = Color(255, 224, 130)
+        g.fillOval(w / 2 - 26, sunY - 8, 52, 52)
+        g.color = Color(255, 200, 110, 90)
+        g.fillOval(w / 2 - 38, sunY - 20, 76, 76)
+        // Sea
+        val seaY = h * 2 / 3
+        g.color = Color(96, 52, 110)
+        g.fillRect(0, seaY, w, h - seaY)
+        // Shimmering reflection of the sun
+        g.color = Color(255, 214, 140, 150)
+        var y = seaY + 5
+        while (y < h) {
+            val half = 6 + (y - seaY) / 3
+            g.fillRect(w / 2 - half, y, half * 2, 2)
+            y += 7
+        }
+    }
+
+    private fun drawCityBackground(g: Graphics2D, w: Int, h: Int) {
+        // Night sky
+        g.paint = GradientPaint(0f, 0f, Color(26, 34, 64), 0f, h.toFloat(), Color(64, 74, 112))
+        g.fillRect(0, 0, w, h)
+        // Moon
+        g.color = Color(232, 232, 205)
+        g.fillOval(w - 46, 14, 22, 22)
+        g.color = Color(64, 74, 112)
+        g.fillOval(w - 40, 12, 18, 18)
+        // Skyline (seeded so it stays stable across repaints)
+        val rnd = java.util.Random(11L)
+        val baseY = h - 8
+        var x = -4
+        while (x < w) {
+            val bw = 14 + rnd.nextInt(16)
+            val bh = 26 + rnd.nextInt((h / 2).coerceAtLeast(1))
+            g.color = Color(18, 24, 46)
+            g.fillRect(x, baseY - bh, bw, bh)
+            // Lit windows
+            g.color = Color(255, 220, 120, 200)
+            var wy = baseY - bh + 5
+            while (wy < baseY - 4) {
+                var wx = x + 3
+                while (wx < x + bw - 3) {
+                    if ((wx * 7 + wy * 13) % 3 == 0) g.fillRect(wx, wy, 2, 3)
+                    wx += 6
+                }
+                wy += 7
+            }
+            x += bw + 3
+        }
+    }
+
+    private fun drawMatrixBackground(g: Graphics2D, w: Int, h: Int) {
+        g.color = Color(4, 12, 6)
+        g.fillRect(0, 0, w, h)
+        g.font = Font("Monospaced", Font.PLAIN, 12)
+        val rnd = java.util.Random(3L)
+        val span = h + 24
+        var x = 2
+        while (x < w) {
+            val colLen = 4 + rnd.nextInt(8)
+            val start = rnd.nextInt(span)
+            for (i in 0 until colLen) {
+                val y = (start + i * 12 + animFrame * 6) % span - 12
+                val alpha = (235 - i * 28).coerceIn(45, 235)
+                g.color = if (i == 0) Color(200, 255, 200, alpha) else Color(0, 235, 80, alpha)
+                g.drawString(if ((x + y + i) % 2 == 0) "0" else "1", x, y)
+            }
+            x += 12
         }
     }
 
@@ -600,6 +680,79 @@ class PetRenderer : JComponent() {
                 // Tip star
                 g.color = Color(255, 215, 0)
                 drawStar(g, cx, headTop - 34, 5)
+            }
+            "beanie" -> {
+                // Knit dome
+                g.color = Color(200, 70, 70)
+                g.fillArc(cx - 20, headTop - 16, 40, 32, 0, 180)
+                g.fillRect(cx - 20, headTop - 1, 40, 7)
+                // Folded brim
+                g.color = Color(235, 235, 235)
+                g.fillRect(cx - 20, headTop + 4, 40, 6)
+                // Pom-pom
+                g.color = Color(245, 245, 245)
+                g.fillOval(cx - 6, headTop - 24, 12, 12)
+            }
+            "cap" -> {
+                // Backwards baseball cap
+                g.color = Color(40, 120, 90)
+                g.fillArc(cx - 18, headTop - 14, 36, 28, 0, 180)
+                g.fillRect(cx - 18, headTop, 36, 6)
+                // Brim sticking out to the back (left)
+                g.fillRoundRect(cx - 30, headTop, 16, 6, 4, 4)
+                // Strap snap
+                g.color = Color(230, 230, 230)
+                g.fillRect(cx - 20, headTop + 1, 4, 4)
+                // Button on top
+                g.color = Color(30, 90, 70)
+                g.fillOval(cx - 2, headTop - 16, 4, 4)
+            }
+            "propeller" -> {
+                // Colored dome
+                g.color = Color(70, 140, 220)
+                g.fillArc(cx - 18, headTop - 14, 36, 28, 0, 180)
+                g.color = Color(220, 60, 60)
+                g.fillArc(cx - 18, headTop - 14, 36, 28, 60, 60)
+                // Stalk
+                g.color = Color(120, 120, 120)
+                g.fillRect(cx - 1, headTop - 22, 2, 10)
+                // Spinning blades
+                g.color = Color(240, 200, 60)
+                if (animFrame % 2 == 0) {
+                    g.fillOval(cx - 18, headTop - 24, 16, 5)
+                    g.fillOval(cx + 2, headTop - 24, 16, 5)
+                } else {
+                    g.fillOval(cx - 3, headTop - 32, 6, 18)
+                }
+                // Hub
+                g.color = Color(200, 60, 60)
+                g.fillOval(cx - 3, headTop - 25, 6, 6)
+            }
+            "graduation_cap" -> {
+                g.color = Color(25, 25, 32)
+                // Cap base
+                g.fillRoundRect(cx - 13, headTop - 8, 26, 10, 5, 5)
+                // Mortarboard (flat diamond)
+                val mx = intArrayOf(cx, cx + 26, cx, cx - 26)
+                val my = intArrayOf(headTop - 18, headTop - 9, headTop, headTop - 9)
+                g.fillPolygon(mx, my, 4)
+                // Button
+                g.color = Color(225, 200, 70)
+                g.fillOval(cx - 2, headTop - 11, 5, 5)
+                // Tassel
+                g.stroke = BasicStroke(2f)
+                g.drawLine(cx, headTop - 9, cx + 22, headTop - 8)
+                g.fillRect(cx + 20, headTop - 8, 4, 12)
+            }
+            "halo" -> {
+                // Soft glow
+                g.color = Color(255, 245, 180, 110)
+                g.stroke = BasicStroke(8f)
+                g.drawOval(cx - 16, headTop - 24, 32, 12)
+                // Solid ring
+                g.color = Color(255, 226, 110)
+                g.stroke = BasicStroke(4f)
+                g.drawOval(cx - 16, headTop - 24, 32, 12)
             }
         }
     }

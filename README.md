@@ -1,45 +1,93 @@
-# HackDelftChallenge
+# DevPet
 
-![Build](https://github.com/Alttrex/HackDelftChallenge/workflows/Build/badge.svg)
-[![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+DevPet is a gamified IntelliJ Platform plugin that turns everyday coding into a virtual pet experience.
 
-## Template ToDo list
-- [x] Create a new [IntelliJ Platform Plugin Template][template] project.
-- [ ] Get familiar with the [template documentation][template].
-- [ ] Adjust the [group](./gradle.properties), as well as the [id](./src/main/resources/META-INF/plugin.xml), [name](./src/main/resources/META-INF/plugin.xml), and [sources package](./src/main/kotlin).
-- [ ] Adjust the plugin [description](./src/main/resources/META-INF/plugin.xml) (see [Tips][docs:plugin-description]) and this README to describe what your plugin does.
-- [ ] Review the [Legal Agreements](https://plugins.jetbrains.com/docs/marketplace/legal-agreements.html?from=IJPluginTemplate).
-- [ ] [Publish a plugin manually](https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate) for the first time.
-- [ ] Set the `MARKETPLACE_ID` in the above README badges. You can obtain it once the plugin is published to JetBrains Marketplace.
-- [ ] Set the [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html?from=IJPluginTemplate) related [secrets](https://github.com/JetBrains/intellij-platform-plugin-template#environment-variables).
-- [ ] Set the [Deployment Token](https://plugins.jetbrains.com/docs/marketplace/plugin-upload.html?from=IJPluginTemplate).
-- [ ] Click the <kbd>Watch</kbd> button on the top of the [IntelliJ Platform Plugin Template][template] to be notified about releases containing new features and fixes.
+Your pet lives in a tool window, grows as you write code, and reacts to how you work:
 
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
+- write code to earn XP and daily progress
+- write tests and documentation for better rewards
+- paste or AI-generate code and the pet gets sick
+- complete builds to trigger fun pet reactions
+- earn DevCoins and spend them in the shop on cosmetics
+
+## Features
+
+- **Virtual pet tool window** on the right side of the IDE
+- **Code tracking** for lines written, tests, and Javadocs
+- **AI detection** that checks batched code snippets with the OpenAI Chat Completions API
+- **Build hook** that reacts to successful builds
+- **Achievements and progression** for milestones and healthy coding habits
+- **Cosmetics shop** for fun items like hats and backgrounds
+
+## Requirements
+
+- IntelliJ IDEA or another compatible IntelliJ-based IDE
+- Java/Kotlin support enabled in the IDE
+- An OpenAI API key if you want AI detection to run
+
+## Configuration
+
+AI detection reads the `DEVPET_OPENAI_API_KEY` environment variable.
+
+You can also place the key in a `.env` file so the plugin can load it automatically.
+
+Example:
+
+```env
+DEVPET_OPENAI_API_KEY=sk-...
+```
+
+If no key is available, DevPet still works — AI detection is simply disabled.
 
 ## Installation
 
-- Using the IDE built-in plugin system:
+### From a local build
 
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "HackDelftChallenge"</kbd> >
-  <kbd>Install</kbd>
+1. Build the plugin.
+2. Install the generated ZIP from disk in your IDE.
 
-- Using JetBrains Marketplace:
+In IntelliJ IDEA:
 
-  Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) and install it by clicking the <kbd>Install to ...</kbd> button in case your IDE is running.
+<kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
 
-  You can also download the [latest release](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID/versions) from JetBrains Marketplace and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+### From source during development
 
-- Manually:
+Run the plugin inside a sandbox IDE:
 
-  Download the [latest release](https://github.com/Alttrex/HackDelftChallenge/releases/latest) and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+```bash
+./gradlew runIde
+```
 
+## Build
 
----
-Plugin based on the [IntelliJ Platform Plugin Template][template].
+Create a distributable plugin archive with:
 
-[template]: https://github.com/JetBrains/intellij-platform-plugin-template
-[docs:plugin-description]: https://plugins.jetbrains.com/docs/intellij/plugin-user-experience.html#plugin-description-and-presentation
+```bash
+./gradlew buildPlugin
+```
+
+You can also verify the Kotlin sources compile with:
+
+```bash
+./gradlew compileKotlin
+```
+
+## Project structure
+
+- `src/main/kotlin/com/github/alttrex/hackdelftchallenge/listeners/CodeTracker.kt` — document tracking and AI detection
+- `src/main/kotlin/com/github/alttrex/hackdelftchallenge/listeners/BuildHook.kt` — build event reactions
+- `src/main/kotlin/com/github/alttrex/hackdelftchallenge/toolWindow/` — DevPet UI components
+- `src/main/kotlin/com/github/alttrex/hackdelftchallenge/state/` — pet state, progression, and health
+- `src/main/resources/META-INF/plugin.xml` — plugin registration and metadata
+
+## Presentation materials
+
+Pitch deck source files live in:
+
+- `PITCH.md`
+- `slides/DevPet-Pitch.md`
+- `slides/DevPet-Pitch.html`
+
+## License
+
+This project is based on the [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template).
