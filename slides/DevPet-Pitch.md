@@ -10,16 +10,7 @@ title: DevPet Pitch
 
 ### Nurturing better coding habits, one line at a time.
 
-<!--
-Speaker Notes:
-Hello everyone! Today we're excited to introduce DevPet, your new gamified IDE companion.
-DevPet is designed to make coding more engaging and to nurture better coding habits,
-one line of code at a time.
--->
-
-<!--
-Visual: A cute graphic of the Rubber Ducky pet wearing a hat from the shop sitting inside an IDE tool window.
--->
+![DevPet rubber ducky with wizard hat](slide1.png)
 
 ---
 
@@ -47,52 +38,24 @@ Visual: Split screen showing a tired developer and messy, undocumented AI-genera
 - **Introducing DevPet:** A virtual pet that lives right inside your IntelliJ Tool Window.
 - **Core Concept:** Your pet grows and thrives based on your actual coding activity. It turns the daily grind into a rewarding, gamified experience.
 
-<!--
-Speaker Notes:
-Our solution is DevPet. It's a virtual pet that lives directly inside your IntelliJ IDE.
-The core concept is simple: your pet grows and thrives based on your actual, human coding activity.
--->
-
-<!--
-Visual: IntelliJ IDE with the DevPet tool window open on the right, showing a happy duckling.
--->
+![IntelliJ IDE with DevPet tool window](slide3.png)
 
 ---
 
 ## Key Features (The Mechanics)
 
-- **Evolution:** Starts as an Egg -> Duckling -> Duck -> Rubber Ducky.
-- **Daily Goals:** Set a daily Lines of Code (LOC) quota to keep your pet happy.
-- **Quality over Quantity:** Writing Tests and Javadocs yields higher XP multipliers.
-- **The Sickness Mechanic:** Pasting large chunks of code or using AI generators makes your pet sick! You must write genuine code to nurse it back to health.
-
-<!--
-Speaker Notes:
-How does it work? Your pet starts as an egg and evolves into a rubber ducky as you level up.
-Writing tests and Javadocs gives you XP multipliers. Pasting large chunks of code makes your pet sick.
--->
-
-<!--
-Visual: Evolution chart, goal icon, doc icon, sick emoji face.
--->
+- **Evolution:** Egg → Duckling → Duck → Rubber Ducky.
+- **Daily Goals:** Set a daily LOC quota to keep your pet happy.
+- **Quality over Quantity:** Tests and Javadocs earn higher XP multipliers.
+- **Sickness Mechanic:** AI-heavy or messy code lowers health; write genuine code to recover.
 
 ---
 
 ## Gamification & Economy
 
-- **DevCoins:** Meeting your daily quota generates passive income (DevCoins).
-- **The Shop:** Spend DevCoins on cosmetics like Party Hats, Wizard Hats, or custom backgrounds (Space, Night City).
-- **Achievements:** Unlock badges like "Centurion", "Build Master", and "Rubber Ducky" to show off your progress.
-
-<!--
-Speaker Notes:
-Meeting your daily quota generates DevCoins over time. Spend coins in the shop on cosmetics.
-Unlock achievements for milestones like Build Master and Centurion.
--->
-
-<!--
-Visual: DevPet shop mockup with DevCoins, hats, backgrounds, and achievement badges.
--->
+- **DevCoins:** Meeting your daily quota generates passive DevCoins over time.
+- **The Shop:** Spend coins on cosmetics — party hats, wizard hats, and backgrounds (Space, Forest, Ocean).
+- **Achievements:** Unlock badges like "Centurion", "Build Master", and "Rubber Ducky".
 
 ---
 
@@ -138,14 +101,7 @@ Visual: Happy developer icon and team/chart icon.
 - **Social Features:** Team leaderboards, pet playdates, or co-op daily goals.
 - **More IDEs:** Expanding beyond IntelliJ to VS Code, Eclipse, etc.
 
-<!--
-Speaker Notes:
-More pet types, social features like team leaderboards, and expansion to other IDEs like VS Code.
--->
-
-<!--
-Visual: Roadmap timeline with pet, social, and IDE icons.
--->
+![DevPet future roadmap timeline](slide-roadmap.png)
 
 ---
 
