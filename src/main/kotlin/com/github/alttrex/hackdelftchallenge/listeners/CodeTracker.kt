@@ -24,6 +24,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 import java.util.Properties
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
@@ -78,7 +79,8 @@ class CodeTracker : BulkAwareDocumentListener {
     var trackingIntervalSeconds: Long = 30
 
     /**
-     * OpenAI API key. Read from the `DEVPET_OPENAI_API_KEY` environment variable.
+     * OpenAI API key. Read from the `DEVPET_OPENAI_API_KEY` environment variable,
+     * falling back to a `.env` file in the project root directory.
      * If not set, AI detection is skipped (all code counts as human-written).
      */
     var openAiApiKey: String = System.getenv("DEVPET_OPENAI_API_KEY") ?: ""
@@ -139,6 +141,8 @@ class CodeTracker : BulkAwareDocumentListener {
 
     private var timer: Timer? = null
     private val httpClient: HttpClient = HttpClient.newHttpClient()
+    private val aiRequestTimeout = Duration.ofSeconds(30)
+    private val aiRequestMaxAttempts = 2
 
     data class MethodCount(
         val sourceMethodCount: Int,
@@ -180,6 +184,19 @@ class CodeTracker : BulkAwareDocumentListener {
     /** Starts the periodic flush timer. Call once after registration. */
     fun start() {
         instance = this
+
+        // If no API key from the environment, try the .env file in the project root
+        if (openAiApiKey.isBlank()) {
+            openAiApiKey = loadApiKeyFromEnvFile()
+        }
+
+        // Log whether an OpenAI API key was found at startup
+        if (openAiApiKey.isNotBlank()) {
+            log("🔑 OpenAI API key detected — AI code detection is ENABLED.")
+        } else {
+            log("⚠️ No OpenAI API key found (DEVPET_OPENAI_API_KEY). AI code detection is DISABLED — all code will count as human-written.")
+        }
+
         timer?.cancel()
         timer = fixedRateTimer("CodeTracker-flush", daemon = true, period = trackingIntervalSeconds * 1000) {
             flush()
@@ -388,49 +405,75 @@ class CodeTracker : BulkAwareDocumentListener {
     fun checkAiPercentage(codeSnippet: String): Double {
         if (openAiApiKey.isBlank() || codeSnippet.isBlank()) return 0.0
 
-        try {
-            val escapedCode = escapeJson(codeSnippet)
-            val requestBody = """
-                {
-                    "model": "$openAiModel",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a code analysis tool. Given a code snippet, estimate what percentage (0-100) of it appears to be AI-generated vs human-written. Respond with ONLY a single number, nothing else."
-                        },
-                        {
-                            "role": "user",
-                            "content": "$escapedCode"
-                        }
-                    ],
-                    "max_tokens": 10,
-                    "temperature": 0
+        log("🔍 Prompting AI to detect AI-generated code (snippet length: ${codeSnippet.length} chars)")
+
+        val escapedCode = escapeJson(codeSnippet)
+        val requestBody = """
+            {
+                "model": "$openAiModel",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a code analysis tool. Given a code snippet, estimate what percentage (0-100) of it appears to be AI-generated vs human-written. Respond with ONLY a single number, nothing else."
+                    },
+                    {
+                        "role": "user",
+                        "content": "$escapedCode"
+                    }
+                ],
+                "max_tokens": 10,
+                "temperature": 0
+            }
+        """.trimIndent()
+
+        repeat(aiRequestMaxAttempts) { attemptIndex ->
+            val attempt = attemptIndex + 1
+            try {
+                log("⏳ Waiting for AI response (attempt $attempt/$aiRequestMaxAttempts, timeout ${aiRequestTimeout.seconds}s)...")
+
+                val request = HttpRequest.newBuilder()
+                    .uri(URI("https://api.openai.com/v1/chat/completions"))
+                    .timeout(aiRequestTimeout)
+                    .header("Authorization", "Bearer " + openAiApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build()
+
+                val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+                log("📨 AI response received (attempt $attempt/$aiRequestMaxAttempts, status ${response.statusCode()})")
+
+                if (response.statusCode() != 200) {
+                    log("⚠️ OpenAI API returned status ${response.statusCode()}: ${response.body().take(200)}")
+                    return 0.0
                 }
-            """.trimIndent()
 
-            val request = HttpRequest.newBuilder()
-                .uri(URI("https://api.openai.com/v1/chat/completions"))
-                .header("Authorization", "Bearer " + openAiApiKey)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .build()
-
-            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-
-            if (response.statusCode() != 200) {
-                log("⚠️ OpenAI API returned status ${response.statusCode()}: ${response.body().take(200)}")
+                // Extract the content field from the JSON response
+                val contentMatch = Regex(""""content"\s*:\s*"([^"]*?)"""").find(response.body())
+                val content = contentMatch?.groupValues?.get(1)?.trim() ?: return 0.0
+                val percent = content.toDoubleOrNull() ?: return 0.0
+                log("✅ AI response parsed — ${String.format("%.1f", percent)}% AI-generated.")
+                return percent.coerceIn(0.0, 100.0)
+            } catch (_: java.net.http.HttpTimeoutException) {
+                val isLastAttempt = attempt == aiRequestMaxAttempts
+                log("⌛ AI request timed out after ${aiRequestTimeout.seconds}s (attempt $attempt/$aiRequestMaxAttempts)${if (isLastAttempt) "; giving up" else "; retrying"}")
+                if (isLastAttempt) return 0.0
+            } catch (e: Exception) {
+                log("⚠️ OpenAI API call failed (attempt $attempt/$aiRequestMaxAttempts): ${e.message}")
                 return 0.0
             }
-
-            // Extract the content field from the JSON response
-            val contentMatch = Regex(""""content"\s*:\s*"([^"]*?)"""").find(response.body())
-            val content = contentMatch?.groupValues?.get(1)?.trim() ?: return 0.0
-            val percent = content.toDoubleOrNull() ?: return 0.0
-            return percent.coerceIn(0.0, 100.0)
-        } catch (e: Exception) {
-            log("⚠️ OpenAI API call failed: ${e.message}")
-            return 0.0
         }
+
+        return 0.0
+    }
+
+    /**
+     * Forces an immediate AI check on any pending code snippets.
+     * Can be called from anywhere (e.g. a UI button) to trigger AI detection
+     * without waiting for the periodic flush timer.
+     */
+    fun forceAiCheck() {
+        log("🔄 Force AI check requested — running AI detection now.")
+        flush()
     }
 
     /**
@@ -449,8 +492,10 @@ class CodeTracker : BulkAwareDocumentListener {
 
         // Run AI detection on accumulated snippets
         val combinedCode = snippets.joinToString("\n")
+        log("🔍 Running AI detection on ${snippets.size} snippet(s) (${combinedCode.length} chars)…")
         val aiPercent = checkAiPercentage(combinedCode)
         val aiCharsInBatch = (combinedCode.length * aiPercent / 100).toLong()
+        log("✅ AI detection complete — ${String.format("%.1f", aiPercent)}% flagged as AI-generated.")
 
         synchronized(lock) {
             aiCharsInProject += aiCharsInBatch
@@ -510,6 +555,76 @@ class CodeTracker : BulkAwareDocumentListener {
             .replace("\n", "\\n")
             .replace("\r", "\\r")
             .replace("\t", "\\t")
+    }
+
+    /**
+     * Reads the `DEVPET_OPENAI_API_KEY` value from a `.env` file.
+     * Searches in the following locations (first match wins):
+     * 1. The open project's base directory (`project.basePath`)
+     * 2. The plugin's own project directory (derived from the compiled class location)
+     * 3. The JVM working directory (`user.dir`)
+     * 4. The user's home directory (`user.home`)
+     *
+     * Returns an empty string if no `.env` file with the key is found.
+     */
+    private fun loadApiKeyFromEnvFile(): String {
+        val dirs = mutableListOf<String>()
+
+        // 1. The open project's base directory
+        project?.basePath?.let { dirs.add(it) }
+
+        // 2. The plugin's own project directory — walk up from the compiled class
+        //    location (e.g. build/classes/kotlin/main/) until we find a directory
+        //    that contains a .env file or a build.gradle.kts (project root marker).
+        try {
+            val classUrl = CodeTracker::class.java.protectionDomain?.codeSource?.location
+            if (classUrl != null) {
+                var dir = File(classUrl.toURI())
+                repeat(10) {
+                    dir = dir.parentFile ?: return@repeat
+                    if (File(dir, ".env").exists() || File(dir, "build.gradle.kts").exists()) {
+                        dirs.add(dir.absolutePath)
+                        return@repeat
+                    }
+                }
+            }
+        } catch (_: Exception) { /* security manager or URI issues — ignore */ }
+
+        // 3 & 4. JVM working directory and user home
+        System.getProperty("user.dir")?.let { dirs.add(it) }
+        System.getProperty("user.home")?.let { dirs.add(it) }
+
+        val candidates = dirs.distinct().map { File(it, ".env") }
+
+        log("🔎 Searching for .env file in: ${candidates.joinToString { it.absolutePath }}")
+
+        for (envFile in candidates) {
+            if (!envFile.exists()) {
+                log("   ❌ Not found: ${envFile.absolutePath}")
+                continue
+            }
+            log("   ✅ Found .env at: ${envFile.absolutePath}")
+            try {
+                envFile.useLines { lines ->
+                    for (line in lines) {
+                        val trimmed = line.trim()
+                        if (trimmed.startsWith("#") || '=' !in trimmed) continue
+                        val (key, value) = trimmed.split('=', limit = 2)
+                        if (key.trim() == "DEVPET_OPENAI_API_KEY") {
+                            val resolved = value.trim()
+                            if (resolved.isNotBlank()) {
+                                log("📂 Loaded OpenAI API key from .env file (${envFile.absolutePath})")
+                                return resolved
+                            }
+                        }
+                    }
+                }
+                log("   ⚠️ .env found but DEVPET_OPENAI_API_KEY not present in ${envFile.absolutePath}")
+            } catch (e: Exception) {
+                log("⚠️ Failed to read .env file (${envFile.absolutePath}): ${e.message}")
+            }
+        }
+        return ""
     }
 
     /** Logs to both the run console (stdout) and the IDE log. */
