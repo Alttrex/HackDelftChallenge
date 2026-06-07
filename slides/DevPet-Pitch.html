@@ -15,37 +15,116 @@
       color: var(--devpet-accent);
       text-transform: none;
     }
-    .reveal h1 { font-size: 2.2em; }
-    .reveal h2 { font-size: 1.6em; margin-bottom: 0.8em; }
+    .reveal h1 { font-size: 2em; margin-bottom: 0.3em; }
+    .reveal h2 { font-size: 1.45em; margin-bottom: 0.5em; }
     .reveal .subtitle {
       color: #fff;
-      font-size: 1.1em;
-      margin-top: 0.5em;
+      font-size: 0.95em;
+      margin-top: 0.3em;
+      line-height: 1.3;
     }
-    .reveal ul { text-align: left; max-width: 900px; margin: 0 auto; }
-    .reveal li { margin-bottom: 0.6em; line-height: 1.35; }
+    .reveal ul {
+      text-align: left;
+      max-width: 900px;
+      margin: 0 auto;
+      font-size: 0.82em;
+    }
+    .reveal li { margin-bottom: 0.45em; line-height: 1.28; }
     .reveal .visual {
-      margin-top: 1.5em;
-      font-size: 0.55em;
+      margin-top: 0.6em;
+      font-size: 0.5em;
       color: var(--devpet-muted);
       font-style: italic;
     }
-    .reveal .title-slide .duck {
-      font-family: monospace;
-      white-space: pre;
-      font-size: 0.45em;
-      line-height: 1.1;
-      color: #fff;
-      margin: 1em auto 0;
-    }
     .reveal .cta {
-      font-size: 1.2em;
+      font-size: 1.1em;
       color: var(--devpet-accent);
-      margin-top: 1em;
+      margin-top: 0.8em;
     }
     .reveal .repo {
-      font-size: 0.85em;
+      font-size: 0.8em;
       color: #8ab4f8;
+    }
+
+    /* Keep every slide inside the viewport */
+    .reveal .slides section {
+      box-sizing: border-box;
+      padding: 0.6em 1.2em !important;
+    }
+
+    /* Side-by-side title + screenshot */
+    .split-slide {
+      display: grid !important;
+      grid-template-columns: 1fr minmax(0, 42%);
+      gap: 1.2rem;
+      align-items: center;
+      text-align: left;
+      height: 100%;
+    }
+    .split-slide .slide-text {
+      min-width: 0;
+    }
+
+    /* Solution slide: bullets left, wide IDE screenshot right */
+    .solution-slide {
+      display: grid !important;
+      grid-template-rows: auto 1fr;
+      gap: 0.5rem;
+      height: 100%;
+      text-align: left;
+    }
+    .solution-slide .split-row {
+      display: grid;
+      grid-template-columns: minmax(0, 44%) minmax(0, 56%);
+      gap: 1rem;
+      align-items: center;
+      min-height: 0;
+    }
+    .solution-slide ul {
+      max-width: none;
+      margin: 0;
+      font-size: 0.78em;
+    }
+
+    /* Slides 4 & 5: tighter typography so nothing clips */
+    .compact-slide h2 {
+      font-size: 1.25em;
+      margin-bottom: 0.35em;
+    }
+    .compact-slide ul {
+      max-width: none;
+      margin: 0;
+      font-size: 0.72em;
+      line-height: 1.22;
+    }
+    .compact-slide li {
+      margin-bottom: 0.32em;
+    }
+    .compact-slide ul.two-col {
+      columns: 2;
+      column-gap: 1.5em;
+    }
+    .compact-slide .visual {
+      margin-top: 0.4em;
+      font-size: 0.48em;
+    }
+
+    .slide-img {
+      display: block;
+      max-width: 100%;
+      max-height: min(58vh, 520px);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      margin: 0 auto;
+      border-radius: 8px;
+      box-shadow: 0 6px 28px rgba(0, 0, 0, 0.45);
+    }
+    .slide-img--portrait {
+      max-height: min(62vh, 540px);
+    }
+    .slide-img--wide {
+      max-height: min(50vh, 400px);
     }
   </style>
 </head>
@@ -54,15 +133,12 @@
     <div class="slides">
 
       <!-- Slide 1 -->
-      <section class="title-slide" data-background-color="#1a1a2e">
-        <h1>DevPet - Your Gamified IDE Companion</h1>
-        <p class="subtitle">Nurturing better coding habits, one line at a time.</p>
-        <pre class="duck">          __
-        &lt;(o )___
-         ( ._&gt; /  squeak!
-          `---'
-        ~~~~~~~~~~</pre>
-        <p class="visual">Visual: Rubber Ducky pet wearing a hat from the shop, inside an IDE tool window.</p>
+      <section class="title-slide split-slide" data-background-color="#1a1a2e">
+        <div class="slide-text">
+          <h1>DevPet - Your Gamified IDE Companion</h1>
+          <p class="subtitle">Nurturing better coding habits, one line at a time.</p>
+        </div>
+        <img src="slide1.png" alt="DevPet rubber ducky with wizard hat in the IDE tool window" class="slide-img slide-img--portrait">
         <aside class="notes">
           Hello everyone! Today we're excited to introduce DevPet, your new gamified IDE companion.
           DevPet is designed to make coding more engaging and to nurture better coding habits,
@@ -88,13 +164,15 @@
       </section>
 
       <!-- Slide 3 -->
-      <section>
+      <section class="solution-slide">
         <h2>The Solution</h2>
-        <ul>
-          <li><strong>Introducing DevPet:</strong> A virtual pet that lives right inside your IntelliJ Tool Window.</li>
-          <li><strong>Core Concept:</strong> Your pet grows and thrives based on your actual coding activity. It turns the daily grind into a rewarding, gamified experience.</li>
-        </ul>
-        <p class="visual">Visual: IntelliJ IDE with the DevPet tool window open, showing a happy duckling.</p>
+        <div class="split-row">
+          <ul>
+            <li><strong>Introducing DevPet:</strong> A virtual pet that lives right inside your IntelliJ Tool Window.</li>
+            <li><strong>Core Concept:</strong> Your pet grows and thrives based on your actual coding activity. It turns the daily grind into a rewarding, gamified experience.</li>
+          </ul>
+          <img src="slide3.png" alt="IntelliJ IDE with DevPet tool window showing a duckling" class="slide-img slide-img--wide">
+        </div>
         <aside class="notes">
           Our solution is DevPet. It's a virtual pet that lives directly inside your IntelliJ IDE.
           The core concept is simple: your pet grows and thrives based on your actual, human coding activity.
@@ -103,15 +181,14 @@
       </section>
 
       <!-- Slide 4 -->
-      <section>
+      <section class="compact-slide">
         <h2>Key Features (The Mechanics)</h2>
-        <ul>
-          <li><strong>Evolution:</strong> Starts as an Egg → Duckling → Duck → Rubber Ducky.</li>
-          <li><strong>Daily Goals:</strong> Set a daily Lines of Code (LOC) quota to keep your pet happy.</li>
-          <li><strong>Quality over Quantity:</strong> Writing Tests and Javadocs yields higher XP multipliers.</li>
-          <li><strong>The Sickness Mechanic:</strong> Pasting large chunks of code or using AI generators makes your pet sick! You must write genuine code to nurse it back to health.</li>
+        <ul class="two-col">
+          <li><strong>Evolution:</strong> Egg → Duckling → Duck → Rubber Ducky.</li>
+          <li><strong>Daily Goals:</strong> Set a daily LOC quota to keep your pet happy.</li>
+          <li><strong>Quality over Quantity:</strong> Tests and Javadocs earn higher XP multipliers.</li>
+          <li><strong>Sickness Mechanic:</strong> AI-heavy or messy code lowers health; write genuine code to recover.</li>
         </ul>
-        <p class="visual">Visual: Evolution chart, goal icon, doc icon, sick emoji.</p>
         <aside class="notes">
           How does it work? Your pet starts as an egg and evolves into a rubber ducky as you level up.
           You set a daily lines-of-code quota to keep it happy. But it's not just about quantity — quality matters!
@@ -121,14 +198,13 @@
       </section>
 
       <!-- Slide 5 -->
-      <section>
+      <section class="compact-slide">
         <h2>Gamification &amp; Economy</h2>
         <ul>
-          <li><strong>DevCoins:</strong> Meeting your daily quota generates passive income (DevCoins).</li>
-          <li><strong>The Shop:</strong> Spend DevCoins on cosmetics like Party Hats, Wizard Hats, or custom backgrounds (Space, Night City).</li>
-          <li><strong>Achievements:</strong> Unlock badges like "Centurion", "Build Master", and "Rubber Ducky" to show off your progress.</li>
+          <li><strong>DevCoins:</strong> Meeting your daily quota generates passive DevCoins over time.</li>
+          <li><strong>The Shop:</strong> Spend coins on cosmetics — party hats, wizard hats, and backgrounds (Space, Forest, Ocean).</li>
+          <li><strong>Achievements:</strong> Unlock badges like "Centurion", "Build Master", and "Rubber Ducky".</li>
         </ul>
-        <p class="visual">Visual: DevPet shop mockup with DevCoins, hats, backgrounds, and achievement badges.</p>
         <aside class="notes">
           To keep things engaging, we've built an economy. Meeting your daily quota generates DevCoins over time.
           You can spend these coins in the shop to buy cosmetics — like a wizard hat or a cyberpunk background for your pet.
@@ -169,14 +245,16 @@
       </section>
 
       <!-- Slide 8 -->
-      <section>
+      <section class="solution-slide">
         <h2>Future Roadmap</h2>
-        <ul>
-          <li><strong>More Pets:</strong> Cats, dogs, dragons.</li>
-          <li><strong>Social Features:</strong> Team leaderboards, pet playdates, or co-op daily goals.</li>
-          <li><strong>More IDEs:</strong> Expanding beyond IntelliJ to VS Code, Eclipse, etc.</li>
-        </ul>
-        <p class="visual">Visual: Roadmap timeline with pet, social, and IDE icons.</p>
+        <div class="split-row">
+          <ul>
+            <li><strong>More Pets:</strong> Cats, dogs, dragons.</li>
+            <li><strong>Social Features:</strong> Team leaderboards, pet playdates, or co-op daily goals.</li>
+            <li><strong>More IDEs:</strong> Expanding beyond IntelliJ to VS Code, Eclipse, etc.</li>
+          </ul>
+          <img src="slide-roadmap.png" alt="DevPet roadmap: more pets, social features, more IDEs" class="slide-img slide-img--wide">
+        </div>
         <aside class="notes">
           We have big plans for the future. We want to add more pet types — cats, dogs, maybe even dragons!
           We're also looking into social features, like team leaderboards or co-op goals where your team's pets can interact.
@@ -208,6 +286,9 @@
       transition: 'slide',
       width: 1280,
       height: 720,
+      margin: 0.06,
+      minScale: 0.2,
+      maxScale: 1.0,
     });
   </script>
 </body>

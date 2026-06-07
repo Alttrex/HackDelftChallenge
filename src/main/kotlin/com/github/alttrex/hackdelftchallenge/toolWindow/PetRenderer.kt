@@ -91,75 +91,120 @@ class PetRenderer : JComponent() {
         drawEyes(g, cx, cy - 16, 10, mood)
     }
 
-    // ── Duckling ─────────────────────────────────────────
+    // ── Duckling (the awkward "ugly duckling" phase) ─────
     private fun drawDuckling(g: Graphics2D, cx: Int, cy: Int) {
         val bodyColor = getMoodBodyColor()
+        val patch = Color(150, 138, 108) // drab, half-molted grey-brown down
         // Shadow
         g.color = Color(0, 0, 0, 40)
-        g.fillOval(cx - 22, cy + 30, 44, 10)
-        // Tiny tail tuft
+        g.fillOval(cx - 22, cy + 32, 48, 9)
+
+        // Big clumsy, splayed feet (drawn behind the body), deliberately uneven
+        drawWebFoot(g, cx - 13, cy + 34)
+        drawWebFoot(g, cx + 15, cy + 37)
+
+        // Lumpy, mismatched body (two overlapping blobs = pot-bellied and shapeless)
         g.color = bodyColor
-        val tx = intArrayOf(cx + 22, cx + 34, cx + 22)
-        val ty = intArrayOf(cy + 8, cy + 2, cy + 22)
-        g.fillPolygon(tx, ty, 3)
-        // Body (round fluffy chick)
-        g.fillOval(cx - 26, cy - 4, 52, 44)
-        // Head
-        g.fillOval(cx - 20, cy - 38, 40, 40)
-        // Head tuft feather
-        g.fillOval(cx - 3, cy - 46, 6, 9)
-        // Outlines
+        g.fillOval(cx - 24, cy - 2, 47, 40)
+        g.fillOval(cx - 19, cy + 8, 30, 28)
+        // Drab molting patches
+        g.color = patch
+        g.fillOval(cx - 17, cy + 2, 15, 13)
+        g.fillOval(cx + 3, cy + 12, 11, 10)
+
+        // Scrawny, too-thin neck
+        g.color = bodyColor
+        g.fillRect(cx - 5, cy - 16, 11, 18)
+
+        // Oversized, lopsided head (shifted off-centre so it looks goofy)
+        g.fillOval(cx - 21, cy - 41, 38, 38)
+        // Patchy down on the head too
+        g.color = patch
+        g.fillOval(cx + 1, cy - 35, 12, 11)
+
+        // Messy pinfeather tufts sticking out at odd angles
         g.color = bodyColor.darker()
         g.stroke = BasicStroke(2f)
-        g.drawOval(cx - 26, cy - 4, 52, 44)
-        g.drawOval(cx - 20, cy - 38, 40, 40)
-        // Wing
-        g.color = lighten(bodyColor, 0.18f)
-        g.fillOval(cx + 4, cy + 2, 20, 22)
+        g.drawLine(cx - 4, cy - 40, cx - 8, cy - 51)
+        g.drawLine(cx, cy - 41, cx + 2, cy - 53)
+        g.drawLine(cx + 4, cy - 40, cx + 9, cy - 49)
+
+        // Sketchy outlines
         g.color = bodyColor.darker()
-        g.drawOval(cx + 4, cy + 2, 20, 22)
-        // Beak
-        drawBeak(g, cx, cy - 14, 13, 8)
-        // Eyes
-        drawEyes(g, cx, cy - 24, 12, mood)
-        // Webbed feet
-        drawWebFoot(g, cx - 9, cy + 38)
-        drawWebFoot(g, cx + 9, cy + 38)
+        g.drawOval(cx - 24, cy - 2, 47, 40)
+        g.drawOval(cx - 21, cy - 41, 38, 38)
+
+        // Stubby, undersized wing
+        g.color = lighten(bodyColor, 0.12f)
+        g.fillOval(cx + 5, cy + 2, 15, 19)
+        g.color = bodyColor.darker()
+        g.drawOval(cx + 5, cy + 2, 15, 19)
+
+        // Oversized, goofy beak (slightly off-centre)
+        drawBeak(g, cx - 1, cy - 17, 17, 9)
+        // Beady, close-set eyes
+        drawEyes(g, cx - 1, cy - 27, 8, mood)
     }
 
-    // ── Duck ─────────────────────────────────────────────
+    // ── Duck (realistic mallard drake) ───────────────────
     private fun drawDuck(g: Graphics2D, cx: Int, cy: Int) {
-        val bodyColor = getMoodBodyColor()
+        val body = tintByMood(Color(150, 142, 120))   // grey-brown plumage
+        val breast = tintByMood(Color(120, 76, 48))    // chestnut breast
+        val green = tintByMood(Color(34, 118, 70))     // iridescent green head
         // Shadow
         g.color = Color(0, 0, 0, 40)
         g.fillOval(cx - 30, cy + 40, 60, 12)
-        // Pointed tail
-        g.color = bodyColor
-        val tx = intArrayOf(cx + 24, cx + 44, cx + 24)
-        val ty = intArrayOf(cy + 2, cy - 8, cy + 16)
-        g.fillPolygon(tx, ty, 3)
-        // Body (egg-shaped)
+
+        // Curled black drake tail feather
+        g.color = Color(40, 40, 46)
+        g.stroke = BasicStroke(3f)
+        g.drawArc(cx + 22, cy - 10, 20, 18, -50, 210)
+
+        // Body
+        g.color = body
         g.fillOval(cx - 30, cy - 2, 60, 48)
-        // Head
-        g.fillOval(cx - 22, cy - 46, 44, 44)
+        // Chestnut breast
+        g.color = breast
+        g.fillOval(cx - 17, cy - 6, 34, 32)
+
+        // Folded wing with signature blue speculum patch (white-bordered)
+        g.color = lighten(body, 0.14f)
+        g.fillOval(cx - 28, cy + 4, 30, 28)
+        g.color = Color.WHITE
+        g.fillRect(cx - 25, cy + 15, 22, 2)
+        g.color = tintByMood(Color(45, 88, 168))
+        g.fillRect(cx - 25, cy + 17, 22, 6)
+        g.color = Color.WHITE
+        g.fillRect(cx - 25, cy + 23, 22, 2)
+        g.color = body.darker()
+        g.stroke = BasicStroke(2f)
+        g.drawOval(cx - 28, cy + 4, 30, 28)
+
+        // White neck collar ring
+        g.color = Color(248, 248, 245)
+        g.fillOval(cx - 18, cy - 13, 36, 13)
+
+        // Iridescent green head
+        g.color = green
+        g.fillOval(cx - 20, cy - 46, 40, 42)
+        // Sheen highlight
+        g.color = Color(110, 210, 150, 120)
+        g.fillOval(cx - 6, cy - 44, 13, 22)
+
         // Outlines
-        g.color = bodyColor.darker()
+        g.color = body.darker()
         g.stroke = BasicStroke(2f)
         g.drawOval(cx - 30, cy - 2, 60, 48)
-        g.drawOval(cx - 22, cy - 46, 44, 44)
-        // Belly
-        g.color = lighten(bodyColor, 0.3f)
-        g.fillOval(cx - 4, cy + 8, 28, 30)
-        // Wing
-        g.color = lighten(bodyColor, 0.18f)
-        g.fillOval(cx - 26, cy + 2, 28, 30)
-        g.color = bodyColor.darker()
-        g.drawOval(cx - 26, cy + 2, 28, 30)
-        // Beak
-        drawBeak(g, cx, cy - 20, 19, 11)
+        g.color = Color(24, 78, 50)
+        g.drawOval(cx - 20, cy - 46, 40, 42)
+
+        // Yellow-olive mallard bill with dark nail tip
+        drawBill(g, cx, cy - 20, 21, 12, Color(226, 196, 70), Color(170, 140, 40))
+        g.color = Color(60, 55, 40)
+        g.fillOval(cx - 3, cy - 16, 6, 4)
         // Eyes
-        drawEyes(g, cx, cy - 30, 16, mood)
-        // Webbed feet
+        drawEyes(g, cx, cy - 31, 14, mood)
+        // Orange webbed feet
         drawWebFoot(g, cx - 10, cy + 44)
         drawWebFoot(g, cx + 10, cy + 44)
     }
@@ -168,48 +213,51 @@ class PetRenderer : JComponent() {
     private fun drawRubberDucky(g: Graphics2D, cx: Int, cy: Int) {
         val body = Color(255, 211, 61)       // classic rubber-duck yellow
         val bodyDark = Color(228, 165, 28)
-        // Water ripple it floats on
+        val billColor = Color(247, 148, 29)  // toy-orange bill
+
+        // Water it bobs in
         g.color = Color(120, 190, 235, 120)
         g.stroke = BasicStroke(2.5f)
-        g.drawArc(cx - 46, cy + 40, 36, 14, 0, -180)
-        g.drawArc(cx + 8, cy + 40, 36, 14, 0, -180)
-        // Shadow / reflection
-        g.color = Color(0, 0, 0, 35)
-        g.fillOval(cx - 34, cy + 44, 68, 12)
-        // Body
+        g.drawArc(cx - 52, cy + 40, 34, 12, 0, -180)
+        g.drawArc(cx + 14, cy + 40, 34, 12, 0, -180)
+        // Reflection shadow on the water
+        g.color = Color(0, 0, 0, 30)
+        g.fillOval(cx - 34, cy + 44, 68, 11)
+
+        // Plump rounded body with a flattish waterline bottom
         g.color = body
-        g.fillOval(cx - 32, cy + 2, 64, 46)
-        // Tail flip
-        val tx = intArrayOf(cx + 26, cx + 46, cx + 26)
-        val ty = intArrayOf(cy + 4, cy - 10, cy + 22)
-        g.fillPolygon(tx, ty, 3)
-        // Big head
-        g.fillOval(cx - 30, cy - 48, 60, 58)
-        // Outlines
+        g.fillOval(cx - 34, cy + 2, 68, 42)
+        g.fillRoundRect(cx - 34, cy + 16, 68, 28, 26, 26)
+        // Little upturned tail nub
+        g.fillRoundRect(cx + 24, cy, 16, 16, 9, 9)
+
+        // Big round head, fused to the body by a thick neck (no visible gap)
+        g.fillRoundRect(cx - 14, cy - 12, 28, 26, 18, 18)
+        g.fillOval(cx - 27, cy - 44, 54, 54)
+
+        // Smooth single outline pass
         g.color = bodyDark
         g.stroke = BasicStroke(2.5f)
-        g.drawOval(cx - 32, cy + 2, 64, 46)
-        g.drawOval(cx - 30, cy - 48, 60, 58)
-        // Big flat beak
-        g.color = Color(246, 150, 32)
-        g.fillRoundRect(cx - 18, cy - 24, 36, 15, 9, 9)
-        g.color = Color(205, 115, 18)
-        g.stroke = BasicStroke(1.5f)
-        g.drawLine(cx - 12, cy - 16, cx + 12, cy - 16)
-        // Eyes
-        drawEyes(g, cx, cy - 34, 16, mood)
-        // Glossy rubber highlight on head
-        g.color = Color(255, 255, 255, 150)
-        g.fillOval(cx + 6, cy - 42, 12, 18)
-        // Wing
-        g.color = Color(245, 193, 38)
-        g.fillOval(cx - 28, cy + 8, 24, 28)
-        g.color = bodyDark
-        g.stroke = BasicStroke(1.5f)
-        g.drawOval(cx - 28, cy + 8, 24, 28)
-        // Sparkle
+        g.drawOval(cx - 27, cy - 44, 54, 54)
+        g.drawOval(cx - 34, cy + 2, 68, 42)
+
+        // Iconic protruding orange bill (rounded wedge), with parted lower bill
+        g.color = billColor
+        g.fillRoundRect(cx - 13, cy - 22, 38, 15, 11, 11)
+        g.color = Color(232, 132, 22)
+        g.fillRoundRect(cx - 13, cy - 13, 34, 6, 6, 6)
+        g.color = Color(196, 108, 16)
+        g.stroke = BasicStroke(1.3f)
+        g.drawLine(cx - 9, cy - 13, cx + 19, cy - 13)
+
+        // Simple cute eyes
+        drawEyes(g, cx - 2, cy - 30, 13, mood)
+
+        // Glossy rubber shine on the head
+        g.color = Color(255, 255, 255, 165)
+        g.fillOval(cx - 18, cy - 38, 13, 21)
         g.color = Color(255, 255, 255, 210)
-        drawStar(g, cx - 20, cy - 38, 4)
+        drawStar(g, cx - 20, cy - 31, 3)
     }
 
     // ── Helpers ──────────────────────────────────────────
@@ -271,14 +319,37 @@ class PetRenderer : JComponent() {
         }
     }
 
-    /** Front-facing rounded duck bill. Lower bill droops a little when hungry/sick. */
+    /** Front-facing rounded duck bill (default orange). */
     private fun drawBeak(g: Graphics2D, cx: Int, cy: Int, w: Int, h: Int) {
-        g.color = Color(245, 165, 45)
+        drawBill(g, cx, cy, w, h, Color(245, 165, 45), Color(210, 130, 30))
+    }
+
+    /** Rounded bill in an arbitrary colour. Lower bill droops a little when hungry/sick. */
+    private fun drawBill(g: Graphics2D, cx: Int, cy: Int, w: Int, h: Int, fill: Color, line: Color) {
+        g.color = fill
         g.fillRoundRect(cx - w / 2, cy - h / 2, w, h, h, h)
-        g.color = Color(210, 130, 30)
+        g.color = line
         g.stroke = BasicStroke(1.5f)
         val lipDrop = if (mood == PetMood.HUNGRY || mood == PetMood.SICK) 2 else 0
         g.drawLine(cx - w / 2 + 2, cy + lipDrop, cx + w / 2 - 2, cy + lipDrop)
+    }
+
+    /** Subtly shifts a base plumage colour toward the current mood for at-a-glance feedback. */
+    private fun tintByMood(base: Color): Color = when (mood) {
+        PetMood.SICK -> blend(base, Color(150, 185, 90), 0.4f)
+        PetMood.CONCUSSED -> blend(base, Color(170, 170, 150), 0.35f)
+        PetMood.HUNGRY -> blend(base, Color(205, 200, 175), 0.22f)
+        PetMood.EATING -> blend(base, Color(255, 170, 80), 0.18f)
+        PetMood.HAPPY -> lighten(base, 0.08f)
+        else -> base
+    }
+
+    private fun blend(a: Color, b: Color, t: Float): Color {
+        val f = t.coerceIn(0f, 1f)
+        val r = (a.red + (b.red - a.red) * f).toInt().coerceIn(0, 255)
+        val g = (a.green + (b.green - a.green) * f).toInt().coerceIn(0, 255)
+        val bl = (a.blue + (b.blue - a.blue) * f).toInt().coerceIn(0, 255)
+        return Color(r, g, bl)
     }
 
     /** Little orange webbed foot. */
@@ -474,9 +545,9 @@ class PetRenderer : JComponent() {
     private fun drawHat(g: Graphics2D, cx: Int, cy: Int) {
         val headTop = when (stage) {
             EvolutionStage.EGG -> cy - 38
-            EvolutionStage.BABY -> cy - 38
+            EvolutionStage.BABY -> cy - 41
             EvolutionStage.TEEN -> cy - 46
-            EvolutionStage.ADULT -> cy - 48
+            EvolutionStage.ADULT -> cy - 44
         }
         when (equippedHat) {
             "top_hat" -> {

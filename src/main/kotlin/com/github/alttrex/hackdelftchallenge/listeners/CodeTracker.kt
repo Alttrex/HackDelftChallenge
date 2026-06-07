@@ -1,6 +1,7 @@
 package com.github.alttrex.hackdelftchallenge.listeners
 
 import com.github.alttrex.hackdelftchallenge.achievements.Achievements
+import com.github.alttrex.hackdelftchallenge.state.PetMood
 import com.github.alttrex.hackdelftchallenge.state.PetState
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.thisLogger
@@ -97,6 +98,13 @@ class CodeTracker : BulkAwareDocumentListener {
      */
     var sickThresholdPercent: Double = 50.0
 
+    /**
+     * Hysteresis margin for recovery: a sick pet only feels better once the health score
+     * climbs back to [sickThresholdPercent] + this margin, so it doesn't flap around the
+     * threshold.
+     */
+    var healthRecoveryMargin: Double = 10.0
+
     // ── Per-factor weights (must sum to 1.0) ────────────────────────────
 
     /** Weight of the AI-usage score in the overall health calculation. */
@@ -138,6 +146,9 @@ class CodeTracker : BulkAwareDocumentListener {
     private var lastCountedLineKey: String? = null
     private var lastCountedAt: Long = 0
     private val countDedupWindowMs = 600L
+
+    /** Max lines credited from one document event; larger spikes are ignored (paste/bulk edits). */
+    private val maxLinesPerEvent = 10
 
     private var timer: Timer? = null
     private val httpClient: HttpClient = HttpClient.newHttpClient()
@@ -243,6 +254,12 @@ class CodeTracker : BulkAwareDocumentListener {
         }
         if (completedLines == 0 || firstCompletedText == null) return
 
+        // Ignore sudden bulk inserts (paste, reformat, file reload) that would credit thousands of lines.
+        if (completedLines > maxLinesPerEvent) {
+            log("⚠️ Ignored $completedLines completed line(s) in one edit (max $maxLinesPerEvent per event).")
+            return
+        }
+
         // Guard against the same completion being rewarded twice when a single Enter fires
         // multiple newline-bearing events (e.g. reformat-on-enter).
         val lineKey = "${System.identityHashCode(document)}#$firstLine#$firstCompletedText"
@@ -278,7 +295,7 @@ class CodeTracker : BulkAwareDocumentListener {
         synchronized(lock) {
             if (totalCharsInProject == 0L) return 0.0
             return (aiCharsInProject.toDouble() / totalCharsInProject) * 100
-        }
+        }       
     }
 
     /**
@@ -482,35 +499,68 @@ class CodeTracker : BulkAwareDocumentListener {
      * immediately in [documentChangedNonBulk], not here.
      */
     private fun flush() {
+        // 1) AI detection on any code typed since the last flush. This only updates the
+        //    AI ratio used by getAiScore(); it must not gate the health evaluation below.
         val snippets: List<String>
         synchronized(lock) {
             snippets = pendingSnippets.toList()
             pendingSnippets.clear()
         }
-
-        if (snippets.isEmpty()) return
-
-        // Run AI detection on accumulated snippets
-        val combinedCode = snippets.joinToString("\n")
-        log("🔍 Running AI detection on ${snippets.size} snippet(s) (${combinedCode.length} chars)…")
-        val aiPercent = checkAiPercentage(combinedCode)
-        val aiCharsInBatch = (combinedCode.length * aiPercent / 100).toLong()
-        log("✅ AI detection complete — ${String.format("%.1f", aiPercent)}% flagged as AI-generated.")
-
-        synchronized(lock) {
-            aiCharsInProject += aiCharsInBatch
+        if (snippets.isNotEmpty()) {
+            val combinedCode = snippets.joinToString("\n")
+            log("🔍 Running AI detection on ${snippets.size} snippet(s) (${combinedCode.length} chars)…")
+            val aiPercent = checkAiPercentage(combinedCode)
+            val aiCharsInBatch = (combinedCode.length * aiPercent / 100).toLong()
+            log("✅ AI detection complete — ${String.format("%.1f", aiPercent)}% flagged as AI-generated.")
+            synchronized(lock) {
+                aiCharsInProject += aiCharsInBatch
+            }
+            if (aiCharsInBatch > 0) {
+                log("🤖 AI detection: ${String.format("%.1f", aiPercent)}% of batch (${aiCharsInBatch}/${combinedCode.length} chars) flagged as AI-generated.")
+            }
         }
 
-        if (aiCharsInBatch > 0) {
-            log("🤖 AI detection: ${String.format("%.1f", aiPercent)}% of batch (${aiCharsInBatch}/${combinedCode.length} chars) flagged as AI-generated.")
-        }
+        // 2) Re-evaluate the pet's health from ALL checks on every tick — so cleanliness
+        //    (Checkstyle) and test coverage influence sickness continuously, not only when
+        //    AI detection happens to run on freshly typed code.
+        evaluateHealthAndSickness()
+    }
 
-        // Check if overall health score is below threshold
-        val healthScore = getOverallHealthScore()
-        if (healthScore < sickThresholdPercent) {
-            PetState.getInstance().makeSick()
-            log("🤢 Health score ${String.format("%.1f", healthScore)}% is below threshold ($sickThresholdPercent%) — pet is sick! " +
-                "[AI: ${String.format("%.1f", getAiScore())}, Clean: ${String.format("%.1f", getCleanlinessScore())}, Tests: ${String.format("%.1f", getTestScore())}]")
+    /**
+     * Combines every health check (AI usage, Checkstyle cleanliness, test coverage) into a
+     * single weighted score and updates the pet's sickness accordingly: it falls ill when the
+     * score drops below [sickThresholdPercent] and recovers once it climbs back above
+     * [sickThresholdPercent] + [healthRecoveryMargin]. Transient eat/build animations are left
+     * untouched. Runs off the EDT (called from the flush timer).
+     */
+    private fun evaluateHealthAndSickness() {
+        val aiScore = getAiScore()
+        val cleanliness = getCleanlinessScore()
+        val tests = getTestScore()
+        val health = aiScore * aiScoreWeight +
+            cleanliness * cleanlinessScoreWeight +
+            tests * testScoreWeight
+
+        val breakdown = "[AI ${"%.0f".format(aiScore)}×$aiScoreWeight, " +
+            "Clean ${"%.0f".format(cleanliness)}×$cleanlinessScoreWeight, " +
+            "Tests ${"%.0f".format(tests)}×$testScoreWeight]"
+        log("🩺 Health ${"%.1f".format(health)}% $breakdown " +
+            "(sick < $sickThresholdPercent%, recover ≥ ${sickThresholdPercent + healthRecoveryMargin}%)")
+
+        val state = PetState.getInstance()
+        val mood = state.getCurrentMood()
+        // Don't interrupt the short eat/build reaction animations.
+        if (mood == PetMood.EATING || mood == PetMood.BUILDING) return
+
+        when {
+            health < sickThresholdPercent && mood != PetMood.SICK -> {
+                state.makeSick()
+                log("🤢 Health ${"%.1f".format(health)}% below $sickThresholdPercent% — pet is sick! $breakdown")
+            }
+            mood == PetMood.SICK && health >= sickThresholdPercent + healthRecoveryMargin -> {
+                state.resetMoodFromAnimation()
+                log("💚 Health recovered to ${"%.1f".format(health)}% — pet feels better! $breakdown")
+            }
         }
     }
 
