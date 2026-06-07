@@ -3,12 +3,13 @@ package com.github.alttrex.hackdelftchallenge.toolWindow
 import com.github.alttrex.hackdelftchallenge.state.Cosmetic
 import com.github.alttrex.hackdelftchallenge.state.PetState
 import com.intellij.ui.JBColor
+import com.intellij.ui.RoundedLineBorder
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.Dimension
-import java.awt.Font
 import java.awt.GridLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -26,7 +27,7 @@ class ShopPanel : JPanel(BorderLayout()) {
 
     private val balanceLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(Font.BOLD, 14f)
+        font = JBFont.h3()
     }
 
     // Two-column grid of compact item cards.
@@ -39,7 +40,8 @@ class ShopPanel : JPanel(BorderLayout()) {
 
     private val previewLabel = JBLabel("Preview").apply {
         horizontalAlignment = SwingConstants.CENTER
-        font = font.deriveFont(Font.ITALIC, 11f)
+        font = JBFont.small().deriveFont(java.awt.Font.ITALIC)
+        foreground = JBColor.GRAY
     }
 
     // When the user clicks an item to preview, stop snapping back to equipped cosmetics.
@@ -112,7 +114,7 @@ class ShopPanel : JPanel(BorderLayout()) {
             }
         }
 
-        val nameLabel = JBLabel(item.name).apply { font = font.deriveFont(Font.BOLD, 11f) }
+        val nameLabel = JBLabel(item.name).apply { font = JBFont.medium().asBold() }
 
         val statusLabel = JBLabel(
             when {
@@ -121,14 +123,14 @@ class ShopPanel : JPanel(BorderLayout()) {
                 else -> "💰 ${item.cost}"
             }
         ).apply {
-            font = font.deriveFont(10f)
+            font = JBFont.small()
             if (!owned) foreground = if (state.devCoins >= item.cost)
                 JBColor(0x2E7D32, 0x66BB6A) else JBColor.GRAY
         }
 
         val actionButton = JButton().apply {
             margin = JBUI.insets(1, 6)
-            font = font.deriveFont(10f)
+            font = JBFont.small()
             when {
                 equipped -> {
                     text = "Unequip"
@@ -173,10 +175,10 @@ class ShopPanel : JPanel(BorderLayout()) {
             add(actionButton)
         }
 
-        return JPanel(BorderLayout(6, 0)).apply {
+        return JPanel(BorderLayout(8, 0)).apply {
             border = BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(JBColor.border()),
-                JBUI.Borders.empty(4)
+                RoundedLineBorder(JBColor.border(), JBUI.scale(10), JBUI.scale(1)),
+                JBUI.Borders.empty(6)
             )
             add(icon, BorderLayout.WEST)
             add(info, BorderLayout.CENTER)

@@ -15,23 +15,28 @@ enum class Achievement(
     val id: String,
     val title: String,
     val description: String,
+    val reward: Int,
     val predicate: (PetState) -> Boolean,
 ) {
-    FIRST_LINE("first_line", "Hello, World!", "Wrote your first line of code.",
+    FIRST_LINE("first_line", "Hello, World!", "Wrote your first line of code.", 10,
         { it.totalLinesWritten >= 1 }),
-    CENTURION("centurion", "Centurion", "Wrote 100 lines of code in total.",
+    CENTURION("centurion", "Centurion", "Wrote 100 lines of code in total.", 50,
         { it.totalLinesWritten >= 100 }),
-    QUOTA_MET("quota_met", "Daily Grind", "Met your daily LOC quota.",
+    QUOTA_MET("quota_met", "Daily Grind", "Met your daily LOC quota.", 25,
         { it.dailyLinesWritten >= it.dailyQuota }),
-    DUCKLING("evolve_duckling", "It Hatched!", "Your duck evolved into a duckling.",
+    DOCUMENTER("documenter", "Well Documented", "Wrote 50 lines of documentation.", 40,
+        { it.totalJavadocLinesWritten >= 50 }),
+    TESTER("tester", "Test Driven", "Wrote 50 lines of test code.", 60,
+        { it.totalTestLinesWritten >= 50 }),
+    DUCKLING("evolve_duckling", "It Hatched!", "Your duck evolved into a duckling.", 20,
         { it.getCurrentStage() == EvolutionStage.BABY || laterThanEgg(it) }),
-    DUCK("evolve_duck", "Full-Grown Duck", "Your duck reached the Duck stage.",
+    DUCK("evolve_duck", "Full-Grown Duck", "Your duck reached the Duck stage.", 40,
         { it.getCurrentStage() == EvolutionStage.TEEN || it.getCurrentStage() == EvolutionStage.ADULT }),
-    RUBBER_DUCKY("evolve_rubber", "Rubber Ducky", "Reached the final Rubber Ducky form!",
+    RUBBER_DUCKY("evolve_rubber", "Rubber Ducky", "Reached the final Rubber Ducky form!", 100,
         { it.getCurrentStage() == EvolutionStage.ADULT }),
-    BUILD_MASTER("build_master", "Build Master", "Completed 10 successful builds.",
+    BUILD_MASTER("build_master", "Build Master", "Completed 10 successful builds.", 60,
         { it.totalSuccessfulBuilds >= 10 }),
-    RICH("rich", "Coin Collector", "Saved up 100 DevCoins.",
+    RICH("rich", "Coin Collector", "Saved up 100 DevCoins.", 30,
         { it.devCoins >= 100 });
 
     companion object {
@@ -55,13 +60,13 @@ object Achievements {
             if (!achievement.predicate(state)) continue
 
             state.unlockedAchievements.add(achievement.id)
-            state.addCoins(15) // small reward for unlocking
+            state.addCoins(achievement.reward)
             notify(project, achievement)
         }
     }
 
     private fun notify(project: Project?, achievement: Achievement) {
-        val message = "🏆 ${achievement.title} — ${achievement.description} (+15 DevCoins)"
+        val message = "🏆 ${achievement.title} — ${achievement.description} (+${achievement.reward} DevCoins)"
         println("[DevPet] Achievement unlocked: ${achievement.title}")
         try {
             NotificationGroupManager.getInstance()
