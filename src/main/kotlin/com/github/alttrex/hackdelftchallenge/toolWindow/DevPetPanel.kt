@@ -141,10 +141,20 @@ class DevPetPanel : JPanel(BorderLayout()) {
             add(achievementsLabel)
         }
 
+        val forceAiCheckButton = JButton("🔍 Force AI Check").apply {
+            toolTipText = "Run AI detection on pending code snippets now"
+            addActionListener {
+                com.github.alttrex.hackdelftchallenge.listeners.CodeTracker.instance?.forceAiCheck()
+            }
+        }
+
         val bottomPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             add(statsPanel)
-            add(JPanel().apply { add(shopButton) })
+            add(JPanel().apply {
+                add(shopButton)
+                add(forceAiCheckButton)
+            })
         }
 
         add(topPanel, BorderLayout.NORTH)
