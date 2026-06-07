@@ -1,5 +1,6 @@
 package com.github.alttrex.hackdelftchallenge.state
 
+import com.github.alttrex.hackdelftchallenge.achievements.Badge
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
@@ -106,6 +107,10 @@ class PetState : PersistentStateComponent<PetState> {
     // ── Achievements ────────────────────────────────────────────────────────
     var unlockedAchievements: MutableList<String> = mutableListOf()
 
+    // ── Badges (earned from achievements, shown next to pet name) ───────────
+    var unlockedBadges: MutableList<String> = mutableListOf()
+    var equippedBadge: String = ""
+
     // ── Change notification (lets the UI update instantly instead of polling) ─
     // Not a bean property (private, no accessor), so it is never serialized.
     private val changeListeners = mutableListOf<() -> Unit>()
@@ -203,6 +208,36 @@ class PetState : PersistentStateComponent<PetState> {
     /** The currently active speech text, or empty if nothing is being said right now. */
     fun currentSpeech(): String =
         if (System.currentTimeMillis() < speechUntil) speechMessage else ""
+
+    /** Unlocks a badge if not already owned. Called when the linked achievement is earned. */
+    fun unlockBadge(badgeId: String) {
+        if (badgeId in unlockedBadges) return
+        unlockedBadges.add(badgeId)
+        notifyChanged()
+    }
+
+    /** Equips a badge next to the pet name, or clears it when [badgeId] is blank. */
+    fun equipBadge(badgeId: String) {
+        if (badgeId.isNotEmpty() && badgeId !in unlockedBadges) return
+        equippedBadge = badgeId
+        notifyChanged()
+    }
+
+    /** Ensures badges match already-unlocked achievements (e.g. after loading saved state). */
+    fun syncBadgesFromAchievements() {
+        var changed = false
+        for (badge in Badge.entries) {
+            if (badge.achievementId in unlockedAchievements && badge.id !in unlockedBadges) {
+                unlockedBadges.add(badge.id)
+                changed = true
+            }
+        }
+        if (equippedBadge.isNotEmpty() && equippedBadge !in unlockedBadges) {
+            equippedBadge = ""
+            changed = true
+        }
+        if (changed) notifyChanged()
+    }
 
     /**
      * Awards XP/lines for a single line of genuine code.`

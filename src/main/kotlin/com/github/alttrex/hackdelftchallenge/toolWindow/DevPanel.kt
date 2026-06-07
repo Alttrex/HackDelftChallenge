@@ -179,6 +179,8 @@ class DevPanel : JPanel(BorderLayout()) {
                 state.equippedBackground = ""
                 state.ownedCosmetics.clear()
                 state.unlockedAchievements.clear()
+                state.unlockedBadges.clear()
+                state.equippedBadge = ""
                 // Sync spinners
                 refreshControls(
                     stageCombo, moodCombo, levelSpinner, xpSpinner, xpNextSpinner,

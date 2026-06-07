@@ -56,6 +56,8 @@ class SettingsPanel : JPanel(BorderLayout()) {
                         state.totalTestLinesWritten = 0
                         state.ownedCosmetics.clear()
                         state.unlockedAchievements.clear()
+                        state.unlockedBadges.clear()
+                        state.equippedBadge = ""
                         state.equippedHat = ""
                         state.equippedBackground = ""
                         state.stage = "EGG"

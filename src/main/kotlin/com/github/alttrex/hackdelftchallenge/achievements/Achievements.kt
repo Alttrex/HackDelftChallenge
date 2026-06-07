@@ -55,11 +55,13 @@ object Achievements {
      */
     fun check(project: Project?) {
         val state = PetState.getInstance()
+        state.syncBadgesFromAchievements()
         for (achievement in Achievement.entries) {
             if (achievement.id in state.unlockedAchievements) continue
             if (!achievement.predicate(state)) continue
 
             state.unlockedAchievements.add(achievement.id)
+            Badge.forAchievement(achievement.id)?.let { state.unlockBadge(it.id) }
             state.addCoins(achievement.reward)
             notify(project, achievement)
         }

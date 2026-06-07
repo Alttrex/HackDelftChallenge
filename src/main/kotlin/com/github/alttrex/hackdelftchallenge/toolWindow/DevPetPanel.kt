@@ -1,6 +1,7 @@
 package com.github.alttrex.hackdelftchallenge.toolWindow
 
 import com.github.alttrex.hackdelftchallenge.achievements.Achievement
+import com.github.alttrex.hackdelftchallenge.achievements.Badge
 import com.github.alttrex.hackdelftchallenge.listeners.CodeTracker
 import com.github.alttrex.hackdelftchallenge.state.PetMood
 import com.github.alttrex.hackdelftchallenge.state.PetState
@@ -12,14 +13,17 @@ import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.Cursor
+import java.awt.Dialog
 import java.awt.FlowLayout
 import java.awt.GridLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.util.Timer
 import javax.swing.BoxLayout
+import javax.swing.BorderFactory
+import javax.swing.JButton
+import javax.swing.JDialog
 import javax.swing.JLabel
-import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.SwingConstants
@@ -81,7 +85,7 @@ class DevPetPanel : JPanel(BorderLayout()) {
         horizontalAlignment = SwingConstants.CENTER
         font = JBFont.small()
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-        toolTipText = "Click to view all achievements"
+        toolTipText = "Click to view achievements and equip badges"
         addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) = showAchievementsDialog()
         })
@@ -170,12 +174,13 @@ class DevPetPanel : JPanel(BorderLayout()) {
     private fun refresh() {
         val state = PetState.getInstance()
         state.checkDayReset()
+        state.syncBadgesFromAchievements()
         state.generateCoins()
 
         val stage = state.getCurrentStage()
         val mood = state.getCurrentMood()
 
-        nameLabel.text = state.petName
+        nameLabel.text = formatPetName(state)
         stageLabel.text = "Stage: ${stage.displayName}"
         levelLabel.text = "Level ${state.level}"
 
@@ -224,9 +229,25 @@ class DevPetPanel : JPanel(BorderLayout()) {
         achievementsLabel.text = "🏆 Achievements: ${state.unlockedAchievements.size} / ${Achievement.entries.size} (click to view)"
     }
 
-    /** Shows a dialog listing every achievement and whether it has been unlocked. */
+    /** Pet name with the equipped badge emoji shown beside it. */
+    private fun formatPetName(state: PetState): String {
+        val badge = Badge.fromId(state.equippedBadge) ?: return state.petName
+        return "${badge.emoji} ${state.petName}"
+    }
+
+    /** Shows achievements and lets the user equip earned badges. */
     private fun showAchievementsDialog() {
-        val unlocked = PetState.getInstance().unlockedAchievements
+        val state = PetState.getInstance()
+        state.syncBadgesFromAchievements()
+
+        val dialog = JDialog(
+            SwingUtilities.getWindowAncestor(this),
+            "Achievements & Badges",
+            Dialog.ModalityType.APPLICATION_MODAL,
+        )
+        dialog.layout = BorderLayout()
+
+        val unlocked = state.unlockedAchievements
         val rows = Achievement.entries.joinToString("") { achievement ->
             val done = achievement.id in unlocked
             val icon = if (done) "\u2705" else "\uD83D\uDD12"
@@ -243,17 +264,43 @@ class DevPetPanel : JPanel(BorderLayout()) {
         }
         val unlockedCount = Achievement.entries.count { it.id in unlocked }
         val earned = Achievement.entries.filter { it.id in unlocked }.sumOf { it.reward }
-        val html = "<html><body style='width:360px'>" +
-            "<div style='font-size:14px;padding-bottom:6px'>" +
-            "<b>Unlocked $unlockedCount / ${Achievement.entries.size}</b>" +
-            "<span style='color:#9E9E9E'> &nbsp;&middot;&nbsp; ${earned}&#129689; earned</span></div>" +
-            "<table style='border-collapse:collapse'>$rows</table></body></html>"
-        JOptionPane.showMessageDialog(
-            this,
-            JLabel(html),
-            "Achievements",
-            JOptionPane.PLAIN_MESSAGE,
-        )
+        val achievementsHtml = "<html><body style='width:320px'>" +
+            "<p><b>Achievements: $unlockedCount / ${Achievement.entries.size}</b> " +
+            "<span style='color:#9E9E9E'>&middot; ${earned}&#129689; earned</span></p>" +
+            "<table>$rows</table></body></html>"
+        dialog.add(JLabel(achievementsHtml), BorderLayout.NORTH)
+
+        val badgesPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            border = BorderFactory.createTitledBorder("Badges (equip next to pet name)")
+        }
+        for (badge in Badge.entries) {
+            val owned = badge.id in state.unlockedBadges
+            val equipped = state.equippedBadge == badge.id
+            val row = JPanel(FlowLayout(FlowLayout.LEFT, 8, 4)).apply {
+                add(JLabel("${badge.emoji} ${badge.title}${if (!owned) " (locked)" else if (equipped) " (equipped)" else ""}"))
+                if (owned) {
+                    add(JButton(if (equipped) "Unequip" else "Equip").apply {
+                        addActionListener {
+                            state.equipBadge(if (equipped) "" else badge.id)
+                            dialog.dispose()
+                            refresh()
+                            showAchievementsDialog()
+                        }
+                    })
+                }
+            }
+            badgesPanel.add(row)
+        }
+        dialog.add(badgesPanel, BorderLayout.CENTER)
+
+        dialog.add(JButton("Close").apply {
+            addActionListener { dialog.dispose() }
+        }.let { btn -> JPanel().apply { add(btn) } }, BorderLayout.SOUTH)
+
+        dialog.pack()
+        dialog.setLocationRelativeTo(this)
+        dialog.isVisible = true
     }
 
     private fun startRefreshTimer() {
