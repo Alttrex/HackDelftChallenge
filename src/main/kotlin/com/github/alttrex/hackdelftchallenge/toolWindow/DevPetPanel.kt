@@ -1,17 +1,23 @@
 package com.github.alttrex.hackdelftchallenge.toolWindow
 
+import com.github.alttrex.hackdelftchallenge.achievements.Achievement
 import com.github.alttrex.hackdelftchallenge.state.PetMood
 import com.github.alttrex.hackdelftchallenge.state.PetState
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.Cursor
 import java.awt.Font
 import java.awt.GridLayout
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.util.Timer
 import javax.swing.BorderFactory
 import javax.swing.BoxLayout
 import javax.swing.JButton
+import javax.swing.JLabel
+import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.SwingConstants
@@ -68,6 +74,11 @@ class DevPetPanel : JPanel(BorderLayout()) {
     private val achievementsLabel = JBLabel().apply {
         horizontalAlignment = SwingConstants.CENTER
         font = font.deriveFont(11f)
+        cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+        toolTipText = "Click to view all achievements"
+        addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) = showAchievementsDialog()
+        })
     }
 
     private val shopButton = JButton("🛒 Open Shop").apply {
@@ -195,7 +206,33 @@ class DevPetPanel : JPanel(BorderLayout()) {
         coinsLabel.text = "DevCoins: ${state.devCoins}"
         statsLabel.text = "<html>Total LOC: ${state.totalLinesWritten} | Builds: ${state.totalSuccessfulBuilds}/${state.totalBuilds}<br>" +
             "📝 Javadoc: ${state.totalJavadocLinesWritten} | 🧪 Tests: ${state.totalTestLinesWritten}</html>"
-        achievementsLabel.text = "🏆 Achievements: ${state.unlockedAchievements.size}"
+        achievementsLabel.text = "🏆 Achievements: ${state.unlockedAchievements.size} / ${Achievement.entries.size} (click to view)"
+    }
+
+    /** Shows a dialog listing every achievement and whether it has been unlocked. */
+    private fun showAchievementsDialog() {
+        val unlocked = PetState.getInstance().unlockedAchievements
+        val rows = Achievement.entries.joinToString("") { achievement ->
+            val done = achievement.id in unlocked
+            val icon = if (done) "\u2705" else "\uD83D\uDD12"
+            val titleColor = if (done) "#4CAF50" else "#9E9E9E"
+            "<tr>" +
+                "<td valign='top' style='padding:4px 8px 4px 0;font-size:14px'>$icon</td>" +
+                "<td style='padding:4px 0'>" +
+                "<b style='color:$titleColor'>${achievement.title}</b><br>" +
+                "<span style='color:#9E9E9E'>${achievement.description}</span>" +
+                "</td></tr>"
+        }
+        val unlockedCount = Achievement.entries.count { it.id in unlocked }
+        val html = "<html><body style='width:320px'>" +
+            "<p><b>Unlocked $unlockedCount / ${Achievement.entries.size}</b></p>" +
+            "<table>$rows</table></body></html>"
+        JOptionPane.showMessageDialog(
+            this,
+            JLabel(html),
+            "Achievements",
+            JOptionPane.PLAIN_MESSAGE,
+        )
     }
 
     private fun startRefreshTimer() {

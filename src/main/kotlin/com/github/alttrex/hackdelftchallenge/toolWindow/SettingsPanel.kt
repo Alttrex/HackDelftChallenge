@@ -67,6 +67,7 @@ class SettingsPanel : JPanel() {
                     state.dailyTestLinesWritten = 0
                     state.totalTestLinesWritten = 0
                     state.ownedCosmetics.clear()
+                    state.unlockedAchievements.clear()
                     state.equippedHat = ""
                     state.equippedBackground = ""
                     state.stage = "EGG"
