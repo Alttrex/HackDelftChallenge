@@ -388,6 +388,8 @@ class CodeTracker : BulkAwareDocumentListener {
     fun checkAiPercentage(codeSnippet: String): Double {
         if (openAiApiKey.isBlank() || codeSnippet.isBlank()) return 0.0
 
+        log("🔍 Prompting AI to detect AI-generated code (snippet length: ${codeSnippet.length} chars)")
+
         try {
             val escapedCode = escapeJson(codeSnippet)
             val requestBody = """
