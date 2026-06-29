@@ -9,7 +9,7 @@ plugins {
 dependencies {
     testImplementation("junit:junit:4.13.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.puppycrawl.tools:checkstyle:10.26.1")
+    implementation("com.puppycrawl.tools:checkstyle:13.7.0")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
